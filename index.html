@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ClimateAdapt</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --font: Helvetica Neue, Helvetica, Arial, sans-serif;
+      --bg: #f5f2eb;
+      --ink: #111;
+      --muted: #666;
+      --rule: #ddd;
+      --accent: #e85d04;
+      --blue: #2563eb;
+      --green: #16a34a;
+      --purple: #7c3aed;
+    }
+
+    html, body {
+      min-height: 100%;
+    }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--ink);
+      padding: 0;
+      margin: 0;
+    }
+
+    /* ── PAGE WRAPPER ── */
+    .page {
+      max-width: 1060px;
+      margin: 0 auto;
+      padding: 2.5rem 2.5rem 5rem;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── HEADER ── */
+    .header-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 2px solid var(--ink);
+      padding-bottom: 0.8rem;
+      margin-bottom: 1.8rem;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+    .header-title {
+      font-size: 0.95rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+    .header-date {
+      font-size: 0.88rem;
+      color: var(--muted);
+    }
+    .api-badge {
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 0.22em 0.65em;
+      border: 1.5px solid var(--accent);
+      color: var(--accent);
+    }
+
+    /* ── HERO SECTION ── */
+    .hero {
+      padding: 4rem 0 3.5rem;
+      border-bottom: 1px solid var(--rule);
+      margin-bottom: 3.5rem;
+    }
+    .hero-eyebrow {
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 1.2rem;
+    }
+    .hero-headline {
+      font-size: clamp(3rem, 9vw, 6.5rem);
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      line-height: 0.95;
+      color: var(--ink);
+      margin-bottom: 1.8rem;
+    }
+    .hero-headline span {
+      color: var(--accent);
+    }
+    .hero-desc {
+      font-size: 1.05rem;
+      color: var(--muted);
+      max-width: 520px;
+      line-height: 1.65;
+      letter-spacing: 0.01em;
+    }
+
+    /* ── SECTION HEADER ── */
+    .section-rule { border: none; border-top: 1px solid var(--rule); margin: 0 0 1.3rem; }
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+      margin-bottom: 1.8rem;
+    }
+    .section-label {
+      font-size: 0.9rem;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .section-tag {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 0.2em 0.6em;
+      border: 1px solid;
+    }
+    .tag-tools { border-color: var(--blue); color: var(--blue); }
+
+    /* ── TOOL GRID ── */
+    .tool-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+      gap: 0;
+      border-top: 1px solid var(--ink);
+      border-left: 1px solid var(--ink);
+    }
+
+    .tool-card {
+      border-bottom: 1px solid var(--ink);
+      border-right: 1px solid var(--ink);
+      padding: 1.8rem 1.6rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.9rem;
+      position: relative;
+      background: var(--bg);
+      transition: background 0.15s;
+      cursor: pointer;
+      text-decoration: none;
+      color: inherit;
+      min-height: 180px;
+    }
+
+    .tool-card:hover {
+      background: var(--ink);
+    }
+    .tool-card:hover .tool-num,
+    .tool-card:hover .tool-name,
+    .tool-card:hover .tool-desc {
+      color: var(--bg);
+    }
+    .tool-card:hover .tool-arrow {
+      color: var(--accent);
+    }
+    .tool-card:hover .tool-tag-pill {
+      border-color: var(--bg);
+      color: var(--bg);
+    }
+
+    /* Active / enabled card */
+    .tool-card.active {
+      background: var(--ink);
+    }
+    .tool-card.active .tool-num,
+    .tool-card.active .tool-name,
+    .tool-card.active .tool-desc {
+      color: var(--bg);
+    }
+    .tool-card.active .tool-arrow {
+      color: var(--accent);
+    }
+    .tool-card.active .tool-tag-pill {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    /* Empty / coming-soon card */
+    .tool-card.empty {
+      cursor: default;
+      opacity: 0.45;
+    }
+    .tool-card.empty:hover {
+      background: var(--bg);
+    }
+    .tool-card.empty:hover .tool-num,
+    .tool-card.empty:hover .tool-name,
+    .tool-card.empty:hover .tool-desc {
+      color: var(--ink);
+    }
+    .tool-card.empty:hover .tool-arrow {
+      color: var(--muted);
+    }
+
+    .tool-num {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .tool-name {
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      color: var(--ink);
+      line-height: 1.2;
+    }
+    .tool-desc {
+      font-size: 0.85rem;
+      color: var(--muted);
+      line-height: 1.55;
+      flex: 1;
+    }
+    .tool-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: auto;
+    }
+    .tool-tag-pill {
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 0.2em 0.6em;
+      border: 1px solid var(--rule);
+      color: var(--muted);
+    }
+    .tool-arrow {
+      font-size: 1.2rem;
+      color: var(--muted);
+      font-weight: 700;
+    }
+
+    /* ── COMING SOON LABEL ── */
+    .coming-soon-label {
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--muted);
+      align-self: flex-start;
+      margin-top: auto;
+    }
+
+    /* ── FOOTER ── */
+    .page-footer {
+      margin-top: auto;
+      padding-top: 2.5rem;
+      border-top: 1px solid var(--rule);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+    .footer-left {
+      font-size: 0.82rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .footer-right {
+      font-size: 0.82rem;
+      color: var(--muted);
+    }
+
+    /* Hover shine on active card */
+    @keyframes cardIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .tool-card {
+      animation: cardIn 0.35s ease both;
+    }
+    .tool-card:nth-child(1) { animation-delay: 0.05s; }
+    .tool-card:nth-child(2) { animation-delay: 0.10s; }
+    .tool-card:nth-child(3) { animation-delay: 0.15s; }
+    .tool-card:nth-child(4) { animation-delay: 0.20s; }
+    .tool-card:nth-child(5) { animation-delay: 0.25s; }
+    .tool-card:nth-child(6) { animation-delay: 0.30s; }
+
+    @keyframes heroIn {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .hero { animation: heroIn 0.5s ease both; }
+
+    @media (max-width: 600px) {
+      .page { padding: 1.5rem 1.2rem 4rem; }
+      .hero { padding: 2.5rem 0 2.5rem; }
+      .tool-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <!-- HEADER -->
+  <header class="header-bar">
+    <span class="header-title">ClimateAdapt</span>
+    <div class="header-right">
+      <span class="header-date" id="headerDate"></span>
+      <span class="api-badge">Beta</span>
+    </div>
+  </header>
+
+  <!-- HERO -->
+  <section class="hero">
+    <p class="hero-eyebrow">Climate Intelligence Platform</p>
+    <h1 class="hero-headline">Adapt.<br><span>Prepare.</span><br>Thrive.</h1>
+    <p class="hero-desc">
+      Data-driven tools for climate resilience at the village, block, and district level.
+      Built for frontline decision-makers in agriculture, water, and disaster management.
+    </p>
+  </section>
+
+  <!-- TOOLS -->
+  <section>
+    <hr class="section-rule"/>
+    <div class="section-header">
+      <span class="section-label">Tools</span>
+      <span class="section-tag tag-tools">6 Modules</span>
+    </div>
+
+    <div class="tool-grid">
+
+      <!-- 01 — Active -->
+      <a class="tool-card active" href="village_weather_5_.html">
+        <span class="tool-num">01 — Live</span>
+        <span class="tool-name">Village-Level Weather</span>
+        <p class="tool-desc">Real-time conditions, 5-day forecast &amp; hourly breakdown for any Gram Panchayat. Powered by AccuWeather API.</p>
+        <div class="tool-footer">
+          <span class="tool-tag-pill">Weather · Forecast</span>
+          <span class="tool-arrow">→</span>
+        </div>
+      </a>
+
+      <!-- 02 — Empty -->
+      <div class="tool-card empty">
+        <span class="tool-num">02</span>
+        <span class="tool-name">Coming Soon</span>
+        <p class="tool-desc">This module is under development.</p>
+        <span class="coming-soon-label">Placeholder</span>
+      </div>
+
+      <!-- 03 — Empty -->
+      <div class="tool-card empty">
+        <span class="tool-num">03</span>
+        <span class="tool-name">Coming Soon</span>
+        <p class="tool-desc">This module is under development.</p>
+        <span class="coming-soon-label">Placeholder</span>
+      </div>
+
+      <!-- 04 — Empty -->
+      <div class="tool-card empty">
+        <span class="tool-num">04</span>
+        <span class="tool-name">Coming Soon</span>
+        <p class="tool-desc">This module is under development.</p>
+        <span class="coming-soon-label">Placeholder</span>
+      </div>
+
+      <!-- 05 — Empty -->
+      <div class="tool-card empty">
+        <span class="tool-num">05</span>
+        <span class="tool-name">Coming Soon</span>
+        <p class="tool-desc">This module is under development.</p>
+        <span class="coming-soon-label">Placeholder</span>
+      </div>
+
+      <!-- 06 — Empty -->
+      <div class="tool-card empty">
+        <span class="tool-num">06</span>
+        <span class="tool-name">Coming Soon</span>
+        <p class="tool-desc">This module is under development.</p>
+        <span class="coming-soon-label">Placeholder</span>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="page-footer">
+    <span class="footer-left">ClimateAdapt · India</span>
+    <span class="footer-right" id="footerDate"></span>
+  </footer>
+
+</div>
+
+<script>
+  const d = new Date();
+  const opts = { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' };
+  const timeOpts = { hour: '2-digit', minute: '2-digit' };
+  const dateStr = d.toLocaleDateString('en-IN', opts) + ' · ' + d.toLocaleTimeString('en-IN', timeOpts);
+  document.getElementById('headerDate').textContent = dateStr;
+  document.getElementById('footerDate').textContent = d.getFullYear() + ' · All data sourced from public APIs';
+</script>
+</body>
+</html>

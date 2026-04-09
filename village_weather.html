@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Gram Panchayat Weather — AccuWeather</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --font: Helvetica Neue, Helvetica, Arial, sans-serif;
+      --bg: #f5f2eb; --ink: #111; --muted: #666; --rule: #ddd; --accent: #e85d04;
+      --blue: #2563eb; --green: #16a34a; --purple: #7c3aed;
+    }
+    body {
+      font-family: var(--font);
+      background: var(--bg); color: var(--ink);
+      padding: 2.5rem 2.5rem 5rem; max-width: 1060px; margin: 0 auto;
+    }
+
+    /* ── HEADER ── */
+    .header-bar {
+      display: flex; justify-content: space-between; align-items: center;
+      border-bottom: 2px solid var(--ink); padding-bottom: 0.8rem; margin-bottom: 1.8rem;
+      flex-wrap: wrap; gap: 0.5rem;
+    }
+    .header-title { font-size: 0.95rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
+    .header-right { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+    .header-date  { font-size: 0.88rem; color: var(--muted); }
+    .api-badge {
+      font-size: 0.78rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+      padding: 0.22em 0.65em; border: 1.5px solid var(--accent); color: var(--accent);
+    }
+
+    /* ── CONTROLS ── */
+    .controls-row {
+      display: flex; align-items: center; gap: 0.75rem;
+      margin-bottom: 1.8rem; flex-wrap: wrap;
+    }
+    .selector-label {
+      font-size: 0.85rem; font-weight: 700; letter-spacing: 0.1em;
+      text-transform: uppercase; color: var(--muted); white-space: nowrap;
+    }
+    #villageSelect {
+      font-family: var(--font);
+      font-size: 1rem; font-weight: 700;
+      color: var(--ink); background: var(--bg);
+      border: 2px solid var(--ink); padding: 0.65rem 2.8rem 0.65rem 1rem;
+      cursor: pointer; appearance: none; -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='7' viewBox='0 0 10 7'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23111' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: right 0.8rem center;
+      min-width: 240px; transition: border-color 0.15s;
+    }
+    #villageSelect:focus { outline: none; border-color: var(--accent); }
+
+    .ctrl-btn {
+      font-family: var(--font);
+      font-size: 0.82rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--bg); background: var(--ink); border: none;
+      padding: 0.7rem 1.4rem; cursor: pointer; white-space: nowrap; transition: background 0.15s;
+    }
+    .ctrl-btn:hover { background: var(--accent); }
+    .ctrl-btn.outline { color: var(--muted); background: transparent; border: 1px solid var(--rule); }
+    .ctrl-btn.outline:hover { border-color: var(--ink); color: var(--ink); background: transparent; }
+    #fileInput { display: none; }
+
+    /* ── STATUS ── */
+    .status-box {
+      display: none; padding: 2.5rem 0; text-align: center;
+      font-size: 1rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted);
+    }
+    .status-box.show { display: block; }
+    .status-box.error { color: var(--accent); }
+    @keyframes blink { 0%,100%{opacity:1}50%{opacity:0.2} }
+    .blink { animation: blink 1s infinite; }
+
+    /* ── CONTENT ── */
+    #content { display: none; }
+    #content.show { display: block; }
+
+    /* ── HERO ── */
+    .hero-location {
+      font-size: 0.88rem; letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--muted); margin-bottom: 0.8rem;
+    }
+    .hero-row { display: flex; align-items: flex-end; gap: 3rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
+    .hero-temp-block { line-height: 1; }
+    .hero-temp {
+      font-size: clamp(5.5rem, 18vw, 10rem);
+      font-weight: 700; letter-spacing: -0.03em; color: var(--ink);
+    }
+    .hero-unit { font-size: 0.28em; font-weight: 400; vertical-align: super; color: var(--accent); }
+    .hero-condition {
+      font-size: 1.25rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+      color: var(--accent); margin-top: 0.4rem;
+    }
+    .hero-realfeel { font-size: 0.95rem; color: var(--muted); margin-top: 0.3rem; }
+    .hero-meta-col { padding-bottom: 0.6rem; }
+    .hero-meta-item { font-size: 0.92rem; color: var(--muted); margin-bottom: 0.32rem; }
+    .hero-meta-item strong { color: var(--ink); font-weight: 700; }
+
+    /* ── SECTION ── */
+    .section-rule { border: none; border-top: 1px solid var(--rule); margin: 2.4rem 0 1.3rem; }
+    .section-header { display: flex; align-items: center; gap: 0.8rem; margin-bottom: 1.1rem; }
+    .section-label { font-size: 0.9rem; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); }
+    .section-tag {
+      font-size: 0.72rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+      padding: 0.2em 0.6em; border: 1px solid;
+    }
+    .tag-current  { border-color: var(--blue);   color: var(--blue); }
+    .tag-forecast { border-color: var(--green);  color: var(--green); }
+    .tag-hourly   { border-color: var(--purple); color: var(--purple); }
+
+    /* ── VAR GRID ── */
+    .var-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(165px, 1fr));
+      border-top: 1px solid var(--rule); border-left: 1px solid var(--rule);
+    }
+    .var-cell {
+      border-bottom: 1px solid var(--rule); border-right: 1px solid var(--rule);
+      padding: 1rem 1.1rem;
+    }
+    .var-name {
+      font-size: 0.72rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--muted); margin-bottom: 0.38rem; display: block;
+    }
+    .var-value { font-size: 1.65rem; font-weight: 700; line-height: 1.1; color: var(--ink); }
+    .var-value.accent { color: var(--accent); }
+    .var-value.blue   { color: var(--blue); }
+    .var-value.sm     { font-size: 1.05rem; line-height: 1.4; }
+    .var-sub { font-size: 0.75rem; color: var(--muted); margin-top: 0.22rem; display: block; }
+
+    /* ── DAILY FORECAST TABLE ── */
+    .fc-table { width: 100%; border-collapse: collapse; }
+    .fc-table th {
+      font-size: 0.78rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--muted); text-align: left; padding: 0.75rem 0.9rem;
+      border-bottom: 1px solid var(--rule);
+    }
+    .fc-table th:not(:first-child) { text-align: right; }
+    .fc-table td {
+      padding: 0.95rem 0.9rem; border-bottom: 1px solid var(--rule);
+      font-size: 1rem; font-weight: 600; vertical-align: middle;
+    }
+    .fc-table td:not(:first-child) { text-align: right; }
+    .fc-table tr:last-child td { border-bottom: none; }
+    .fc-table tr:hover td { background: rgba(0,0,0,0.02); }
+    .fc-day-name { font-size: 1rem; font-weight: 700; }
+    .fc-day-date { font-size: 0.78rem; color: var(--muted); font-weight: 400; display: block; margin-top: 3px; }
+    .rain-bar-wrap { display: flex; align-items: center; justify-content: flex-end; gap: 0.4rem; }
+    .rain-bar { height: 4px; background: var(--rule); border-radius: 2px; width: 52px; overflow: hidden; }
+    .rain-bar-fill { height: 100%; background: #3b82f6; border-radius: 2px; }
+    .badge {
+      display: inline-block; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em;
+      text-transform: uppercase; padding: 0.2em 0.55em; border: 1px solid currentColor;
+    }
+    .badge-hot  { color: #dc2626; }
+    .badge-ok   { color: var(--ink); }
+
+    /* ── HOURLY TABLE ── */
+    .hourly-table { width: 100%; border-collapse: collapse; }
+    .hourly-table th {
+      font-size: 0.78rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--muted); text-align: left; padding: 0.75rem 0.9rem;
+      border-bottom: 1px solid var(--rule);
+    }
+    .hourly-table th:not(:first-child) { text-align: right; }
+    .hourly-table td {
+      padding: 0.85rem 0.9rem; border-bottom: 1px solid var(--rule);
+      font-size: 0.95rem; font-weight: 600; vertical-align: middle;
+    }
+    .hourly-table td:not(:first-child) { text-align: right; }
+    .hourly-table tr:last-child td { border-bottom: none; }
+    .hourly-table tr:hover td { background: rgba(0,0,0,0.02); }
+    .h-icon { font-size: 0.78rem; color: var(--muted); font-weight: 400; }
+
+    /* ── DATA FOOTER ── */
+    .data-footer {
+      margin-top: 2.5rem; font-size: 0.8rem; letter-spacing: 0.06em; color: var(--muted);
+      text-transform: uppercase; border-top: 1px solid var(--rule); padding-top: 0.9rem;
+      display: flex; justify-content: space-between; flex-wrap: wrap; gap: 0.4rem;
+    }
+
+    /* ── ACTIONS ── */
+    .actions-row { margin-top: 1.8rem; display: flex; justify-content: flex-end; gap: 0.75rem; }
+    .action-btn {
+      font-family: var(--font); font-size: 0.88rem; font-weight: 700;
+      letter-spacing: 0.1em; text-transform: uppercase; color: #fff; background: #111;
+      border: none; padding: 0.9rem 2rem; cursor: pointer; transition: background 0.15s;
+    }
+    .action-btn:hover { background: var(--accent); }
+    .action-btn:disabled { opacity: 0.35; cursor: wait; }
+    .action-btn.outline-btn { color: var(--ink); background: transparent; border: 1px solid var(--rule); }
+    .action-btn.outline-btn:hover { border-color: var(--ink); background: transparent; color: var(--ink); }
+  </style>
+</head>
+<body>
+
+  <div class="header-bar">
+    <span class="header-title">Gram Panchayat Weather Dashboard</span>
+    <div class="header-right">
+      <span class="api-badge">AccuWeather Standard API</span>
+      <span class="header-date" id="headerDate"></span>
+    </div>
+  </div>
+
+  <div class="controls-row">
+    <span class="selector-label">Village</span>
+    <select id="villageSelect">
+      <option value="" disabled selected>Select a village…</option>
+    </select>
+    <label class="ctrl-btn outline" for="fileInput">↑ Load CSV</label>
+    <input type="file" id="fileInput" accept=".csv,.txt"/>
+  </div>
+
+  <div class="status-box" id="loadingBox">Fetching AccuWeather data<span class="blink">…</span></div>
+  <div class="status-box error" id="errorBox"></div>
+
+  <div id="content">
+    <!-- CAPTURE ZONE: hero + current + daily only -->
+    <div id="capture">
+
+      <!-- HERO -->
+      <div class="hero-location" id="heroLocation"></div>
+      <div class="hero-row">
+        <div class="hero-temp-block">
+          <div class="hero-temp"><span class="hero-unit">°C</span><span id="heroTemp">--</span></div>
+          <div class="hero-condition" id="heroCondition"></div>
+          <div class="hero-realfeel" id="heroRealFeel"></div>
+        </div>
+        <div class="hero-meta-col" id="heroMeta"></div>
+      </div>
+
+      <!-- CURRENT CONDITIONS -->
+      <hr class="section-rule"/>
+      <div class="section-header">
+        <span class="section-label">Current Conditions</span>
+        <span class="section-tag tag-current">Live</span>
+      </div>
+      <div class="var-grid" id="currentGrid"></div>
+
+      <!-- 5-DAY DAILY FORECAST -->
+      <hr class="section-rule"/>
+      <div class="section-header">
+        <span class="section-label">5-Day Daily Forecast</span>
+        <span class="section-tag tag-forecast">Daily</span>
+      </div>
+      <table class="fc-table">
+        <thead>
+          <tr>
+            <th>Day</th>
+            <th>High °C</th><th>Low °C</th>
+            <th>Condition</th>
+            <th>Day Rain %</th><th>Night Rain %</th>
+            <th>UV Index</th><th>Wind</th>
+            <th>Sunrise</th><th>Sunset</th>
+          </tr>
+        </thead>
+        <tbody id="dailyBody"></tbody>
+      </table>
+
+      <!-- DATA FOOTER (inside capture) -->
+      <div class="data-footer" id="dataFooter"></div>
+
+    </div><!-- /#capture -->
+
+    <!-- 12-HOUR HOURLY FORECAST (on screen only, not in download) -->
+    <hr class="section-rule"/>
+    <div class="section-header">
+      <span class="section-label">12-Hour Forecast</span>
+      <span class="section-tag tag-hourly">Hourly</span>
+    </div>
+    <table class="hourly-table">
+      <thead>
+        <tr>
+          <th>Time</th>
+          <th>Temp °C</th>
+          <th>RealFeel °C</th>
+          <th>Condition</th>
+          <th>Rain %</th>
+          <th>Precip (mm)</th>
+          <th>Wind</th>
+          <th>Gusts</th>
+          <th>Humidity</th>
+          <th>UV Index</th>
+          <th>Cloud %</th>
+          <th>Visibility</th>
+        </tr>
+      </thead>
+      <tbody id="hourlyBody"></tbody>
+    </table>
+
+    <div class="actions-row">
+      <button class="action-btn outline-btn" id="refreshBtn">↺ Refresh</button>
+      <button class="action-btn" id="downloadBtn">↓ Download A4 JPG</button>
+    </div>
+  </div>
+
+  <script>
+  const API_KEY = 'QkPfh2F2G1nid8ck2LEnRGzgfSn33TKu';
+  const BASE    = 'https://dataservice.accuweather.com';
+
+  let villages = [
+    {"name":"Bijora","block":"Anta","lat":25.125521,"lng":76.414954},
+    {"name":"Jai Nagar","block":"Anta","lat":25.12521,"lng":76.62962},
+    {"name":"Palsawa","block":"Anta","lat":25.144305,"lng":76.370996},
+    {"name":"Sorkhand Kalan","block":"Anta","lat":25.167182,"lng":76.408025},
+    {"name":"Antana","block":"Atru","lat":24.836432,"lng":76.609505},
+    {"name":"Barlan","block":"Atru","lat":24.816646,"lng":76.669779},
+    {"name":"Deelod Hathi","block":"Atru","lat":24.7689,"lng":76.6355},
+    {"name":"Kharkhada Ramlothan","block":"Atru","lat":24.74625,"lng":76.68925},
+    {"name":"Kundi","block":"Atru","lat":24.7477313,"lng":76.6585928},
+    {"name":"Mothpur","block":"Atru","lat":24.7372154,"lng":76.606604},
+    {"name":"Patna","block":"Atru","lat":24.5807,"lng":76.7769},
+    {"name":"Kotri Sunda","block":"Baran","lat":25.2174,"lng":76.6095},
+    {"name":"Tisaya","block":"Baran","lat":25.23095,"lng":76.59515},
+    {"name":"Haniheda","block":"Chhabra","lat":24.74625,"lng":76.68925},
+    {"name":"Kadaiya Hat","block":"Chhabra","lat":24.5717,"lng":77.0392},
+    {"name":"Phaliya","block":"Chhabra","lat":24.5483,"lng":77.0392},
+    {"name":"Telani","block":"Chhabra","lat":24.4823,"lng":77.0003},
+    {"name":"Jhanjhani","block":"Chhipabarod","lat":24.6046,"lng":76.64032},
+    {"name":"Kachnariya Kalan","block":"Chhipabarod","lat":24.4965323,"lng":76.7480705},
+    {"name":"Kunma Kheri","block":"Chhipabarod","lat":24.4706,"lng":76.7192},
+    {"name":"Manpura","block":"Chhipabarod","lat":25.0279,"lng":76.2885},
+    {"name":"Sejanpur","block":"Chhipabarod","lat":25.2473726,"lng":77.1528234},
+    {"name":"Ghatti","block":"Kishanganj","lat":25.005823,"lng":76.828337},
+    {"name":"Khandela","block":"Kishanganj","lat":25.2333409,"lng":76.849992},
+    {"name":"Khankhara","block":"Kishanganj","lat":25.159633,"lng":76.825281},
+    {"name":"Paraniya","block":"Kishanganj","lat":25.000057,"lng":76.783967},
+    {"name":"Rampuriya Todiya","block":"Kishanganj","lat":25.25168,"lng":76.825502},
+    {"name":"Bhatwara","block":"Mangrol","lat":25.36,"lng":76.6196},
+    {"name":"Bohat","block":"Mangrol","lat":25.235535,"lng":76.488655},
+    {"name":"Hingoniya","block":"Mangrol","lat":24.33296,"lng":75.83763},
+    {"name":"Isharpura","block":"Mangrol","lat":25.101145,"lng":76.513161},
+    {"name":"Baman Gawan","block":"Shahabad","lat":25.29377,"lng":77.11272},
+    {"name":"Beel Kheramal","block":"Shahabad","lat":25.2919,"lng":77.2403},
+    {"name":"Bhoyal","block":"Shahabad","lat":25.2667572,"lng":77.2577511},
+    {"name":"Kasba Nonera","block":"Shahabad","lat":25.29377,"lng":77.11272},
+    {"name":"Majhari","block":"Shahabad","lat":25.101145,"lng":76.513161},
+    {"name":"Sandokara","block":"Shahabad","lat":25.120363,"lng":77.327817},
+    {"name":"Shubh Dhara","block":"Shahabad","lat":25.29377,"lng":77.11272}
+  ];
+
+  const cache = {};
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+  const fToC     = f => f != null ? ((f - 32) * 5 / 9).toFixed(1) : '—';
+  const mphToKmh = m => m != null ? (m * 1.60934).toFixed(1) : '—';
+  const val      = v => v != null ? v : '—';
+  const pct      = v => v != null ? `${v}%` : '—';
+
+  function fmtDate(s) {
+    return new Date(s).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' });
+  }
+  function dayName(s) {
+    return new Date(s).toLocaleDateString('en-IN', { weekday: 'long' });
+  }
+  function fmtHour(s) {
+    return new Date(s).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+  }
+
+  // ── API calls ─────────────────────────────────────────────────────────────
+  async function getLocationKey(lat, lng) {
+    const r = await fetch(`${BASE}/locations/v1/cities/geoposition/search?apikey=${API_KEY}&q=${lat},${lng}&language=en-us`);
+    if (!r.ok) throw new Error(`Location API ${r.status}`);
+    return (await r.json()).Key;
+  }
+  async function getCurrentConditions(key) {
+    const r = await fetch(`${BASE}/currentconditions/v1/${key}?apikey=${API_KEY}&details=true&language=en-us`);
+    if (!r.ok) throw new Error(`Current conditions ${r.status}`);
+    return (await r.json())[0];
+  }
+  async function getDailyForecast(key) {
+    const r = await fetch(`${BASE}/forecasts/v1/daily/5day/${key}?apikey=${API_KEY}&details=true&metric=false&language=en-us`);
+    if (!r.ok) throw new Error(`Daily forecast ${r.status}`);
+    return r.json();
+  }
+  async function getHourlyForecast(key) {
+    const r = await fetch(`${BASE}/forecasts/v1/hourly/12hour/${key}?apikey=${API_KEY}&details=true&metric=false&language=en-us`);
+    if (!r.ok) throw new Error(`Hourly forecast ${r.status}`);
+    return r.json();
+  }
+  async function fetchAll(village) {
+    const key = await getLocationKey(village.lat, village.lng);
+    const [current, daily, hourly] = await Promise.all([
+      getCurrentConditions(key),
+      getDailyForecast(key),
+      getHourlyForecast(key),
+    ]);
+    return { key, current, daily, hourly };
+  }
+
+  // ── Render ────────────────────────────────────────────────────────────────
+  function render(village, data) {
+    const { current: c, daily, hourly } = data;
+
+    // Hero
+    document.getElementById('heroLocation').textContent =
+      `${village.name}  ·  ${village.block} Block  ·  ${village.lat}°N  ${village.lng}°E`;
+    document.getElementById('heroTemp').textContent = fToC(c.Temperature?.Imperial?.Value);
+    document.getElementById('heroCondition').textContent = c.WeatherText || '—';
+    document.getElementById('heroRealFeel').textContent =
+      `RealFeel® ${fToC(c.RealFeelTemperature?.Imperial?.Value)}°C  ·  Shade ${fToC(c.RealFeelTemperatureShade?.Imperial?.Value)}°C`;
+    document.getElementById('heroMeta').innerHTML = [
+      `<div class="hero-meta-item">Wind: <strong>${c.Wind?.Direction?.Localized || '—'} ${mphToKmh(c.Wind?.Speed?.Imperial?.Value)} km/h</strong></div>`,
+      `<div class="hero-meta-item">Gusts: <strong>${mphToKmh(c.WindGust?.Speed?.Imperial?.Value)} km/h</strong></div>`,
+      `<div class="hero-meta-item">Humidity: <strong>${pct(c.RelativeHumidity)}</strong></div>`,
+      `<div class="hero-meta-item">UV Index: <strong>${val(c.UVIndex)} — ${val(c.UVIndexText)}</strong></div>`,
+      `<div class="hero-meta-item">Visibility: <strong>${c.Visibility?.Imperial ? (c.Visibility.Imperial.Value * 1.60934).toFixed(1) + ' km' : '—'}</strong></div>`,
+      `<div class="hero-meta-item">Pressure: <strong>${c.Pressure?.Metric?.Value || '—'} mb</strong></div>`,
+    ].join('');
+
+    // Current conditions grid
+    const cur_vars = [
+      { name: 'Temp (°C)',       value: `${fToC(c.Temperature?.Imperial?.Value)}°`,              sub: `${c.Temperature?.Imperial?.Value ?? '—'}°F` },
+      { name: 'RealFeel® (°C)', value: `${fToC(c.RealFeelTemperature?.Imperial?.Value)}°`,       sub: 'apparent temp' },
+      { name: 'RF Shade (°C)',   value: `${fToC(c.RealFeelTemperatureShade?.Imperial?.Value)}°`, sub: 'in shade' },
+      { name: 'Wet Bulb (°C)',   value: `${fToC(c.WetBulbTemperature?.Imperial?.Value)}°`,       sub: 'wet bulb globe' },
+      { name: 'Dew Point (°C)',  value: `${fToC(c.DewPoint?.Imperial?.Value)}°`,                 sub: 'dew point' },
+      { name: 'Humidity',        value: pct(c.RelativeHumidity),                                  sub: `indoor: ${pct(c.IndoorRelativeHumidity)}` },
+      { name: 'Wind',            value: mphToKmh(c.Wind?.Speed?.Imperial?.Value),                 sub: `km/h · ${c.Wind?.Direction?.Localized || '—'}`, color: 'blue' },
+      { name: 'Wind Gusts',      value: mphToKmh(c.WindGust?.Speed?.Imperial?.Value),             sub: 'km/h gust speed' },
+      { name: 'Visibility',      value: c.Visibility?.Imperial ? (c.Visibility.Imperial.Value * 1.60934).toFixed(1) : '—', sub: 'km' },
+      { name: 'Cloud Cover',     value: pct(c.CloudCover),                                        sub: 'cloud cover %' },
+      { name: 'Ceiling',         value: c.Ceiling?.Imperial ? Math.round(c.Ceiling.Imperial.Value * 0.3048) : '—', sub: 'm cloud ceiling' },
+      { name: 'Pressure',        value: `${c.Pressure?.Metric?.Value ?? '—'}`,                   sub: `mb · ${c.PressureTendency?.LocalizedText || '—'}` },
+      { name: 'UV Index',        value: val(c.UVIndex),                                            sub: c.UVIndexText || '—', color: c.UVIndex >= 8 ? 'accent' : '' },
+      { name: 'Precip (1hr)',    value: `${c.PrecipitationSummary?.PastHour?.Metric?.Value ?? 0}`, sub: 'mm last hour', color: 'blue' },
+      { name: 'Precip (24hr)',   value: `${c.PrecipitationSummary?.Past24Hours?.Metric?.Value ?? 0}`, sub: 'mm last 24hr', color: 'blue' },
+      { name: 'Snow Depth',      value: `${c.SnowDepth?.Metric?.Value ?? 0}`,                     sub: 'cm snow depth' },
+      { name: 'Condition',       value: c.WeatherText || '—',                                     sub: `icon: ${val(c.WeatherIcon)}`, sm: true },
+      { name: 'Day / Night',     value: c.IsDayTime ? 'Day' : 'Night',                            sub: `isDayTime: ${c.IsDayTime}` },
+      { name: 'Obs. Time',       value: c.LocalObservationDateTime ? new Date(c.LocalObservationDateTime).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}) : '—', sub: 'observation time', sm: true },
+    ];
+
+    document.getElementById('currentGrid').innerHTML = cur_vars.map(v => `
+      <div class="var-cell">
+        <span class="var-name">${v.name}</span>
+        <span class="var-value ${v.color||''} ${v.sm?'sm':''}">${v.value}</span>
+        <span class="var-sub">${v.sub}</span>
+      </div>`).join('');
+
+    // Daily forecast
+    document.getElementById('dailyBody').innerHTML = (daily.DailyForecasts || []).map(d => {
+      const isHot = d.Temperature?.Maximum?.Value >= 95;
+      const uv    = d.AirAndPollen?.find(x => x.Name === 'UVIndex')?.Value ?? '—';
+      return `<tr>
+        <td><span class="fc-day-name">${dayName(d.Date)}</span><span class="fc-day-date">${fmtDate(d.Date)}</span></td>
+        <td style="${isHot?'color:var(--accent)':''}">${fToC(d.Temperature?.Maximum?.Value)}°</td>
+        <td>${fToC(d.Temperature?.Minimum?.Value)}°</td>
+        <td><span class="badge ${isHot?'badge-hot':'badge-ok'}">${d.Day?.IconPhrase || '—'}</span></td>
+        <td><div class="rain-bar-wrap"><span>${d.Day?.PrecipitationProbability ?? 0}%</span><div class="rain-bar"><div class="rain-bar-fill" style="width:${d.Day?.PrecipitationProbability ?? 0}%"></div></div></div></td>
+        <td><div class="rain-bar-wrap"><span>${d.Night?.PrecipitationProbability ?? 0}%</span><div class="rain-bar"><div class="rain-bar-fill" style="width:${d.Night?.PrecipitationProbability ?? 0}%"></div></div></div></td>
+        <td>${uv}</td>
+        <td>${d.Day?.Wind?.Speed?.Value ? mphToKmh(d.Day.Wind.Speed.Value) + ' km/h' : '—'}</td>
+        <td>${d.Sun?.Rise ? new Date(d.Sun.Rise).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}) : '—'}</td>
+        <td>${d.Sun?.Set  ? new Date(d.Sun.Set ).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}) : '—'}</td>
+      </tr>`;
+    }).join('');
+
+    // Hourly forecast — plain table, no scroll
+    document.getElementById('hourlyBody').innerHTML = (hourly || []).map(h => `
+      <tr>
+        <td>${fmtHour(h.DateTime)}</td>
+        <td>${fToC(h.Temperature?.Value)}°</td>
+        <td>${fToC(h.RealFeelTemperature?.Value)}°</td>
+        <td><span class="h-icon">${h.IconPhrase || '—'}</span></td>
+        <td><div class="rain-bar-wrap"><span>${h.PrecipitationProbability ?? 0}%</span><div class="rain-bar"><div class="rain-bar-fill" style="width:${h.PrecipitationProbability ?? 0}%"></div></div></div></td>
+        <td>${h.TotalLiquid?.Value != null ? h.TotalLiquid.Value.toFixed(2) : '0.00'} mm</td>
+        <td>${mphToKmh(h.Wind?.Speed?.Value)} km/h ${h.Wind?.Direction?.Localized || ''}</td>
+        <td>${mphToKmh(h.WindGust?.Speed?.Value)} km/h</td>
+        <td>${pct(h.RelativeHumidity)}</td>
+        <td>${val(h.UVIndex)}</td>
+        <td>${pct(h.CloudCover)}</td>
+        <td>${h.Visibility?.Value != null ? (h.Visibility.Value * 1.60934).toFixed(1) + ' km' : '—'}</td>
+      </tr>`).join('');
+
+    // Footer
+    const now = new Date();
+    document.getElementById('dataFooter').innerHTML =
+      `<span>AccuWeather Standard API · Key: ${data.key} · ${now.toLocaleString('en-IN')}</span>
+       <span>${village.lat}°N ${village.lng}°E · ${village.block} Block, India</span>`;
+  }
+
+  // ── Load ──────────────────────────────────────────────────────────────────
+  async function loadVillage(idx, forceRefresh) {
+    document.getElementById('content').classList.remove('show');
+    document.getElementById('errorBox').classList.remove('show');
+    document.getElementById('loadingBox').classList.add('show');
+    try {
+      if (!cache[idx] || forceRefresh) cache[idx] = await fetchAll(villages[idx]);
+      render(villages[idx], cache[idx]);
+      document.getElementById('loadingBox').classList.remove('show');
+      document.getElementById('content').classList.add('show');
+    } catch (err) {
+      document.getElementById('loadingBox').classList.remove('show');
+      const eb = document.getElementById('errorBox');
+      eb.textContent = `Error: ${err.message}`;
+      eb.classList.add('show');
+      console.error(err);
+    }
+  }
+
+  // ── Dropdown ──────────────────────────────────────────────────────────────
+  function populateDropdown() {
+    const sel = document.getElementById('villageSelect');
+    sel.innerHTML = '<option value="" disabled selected>Select a village…</option>';
+    const blocks = {};
+    villages.forEach((v, i) => { (blocks[v.block] = blocks[v.block] || []).push({v, i}); });
+    Object.keys(blocks).sort().forEach(block => {
+      const grp = document.createElement('optgroup');
+      grp.label = block;
+      blocks[block].forEach(({v, i}) => {
+        const opt = document.createElement('option');
+        opt.value = i; opt.textContent = v.name;
+        grp.appendChild(opt);
+      });
+      sel.appendChild(grp);
+    });
+  }
+
+  document.getElementById('villageSelect').addEventListener('change', function () {
+    loadVillage(parseInt(this.value));
+  });
+  document.getElementById('refreshBtn').addEventListener('click', () => {
+    const idx = parseInt(document.getElementById('villageSelect').value);
+    if (!isNaN(idx)) loadVillage(idx, true);
+  });
+
+  // ── CSV loader ────────────────────────────────────────────────────────────
+  document.getElementById('fileInput').addEventListener('change', function () {
+    const file = this.files[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      const lines = e.target.result.trim().split(/\r?\n/);
+      const header = lines[0].split(',').map(h => h.trim().replace(/['"]/g,'').toLowerCase());
+      const nameIdx  = header.findIndex(h => h.includes('gram') || h.includes('village') || h.includes('name'));
+      const blockIdx = header.findIndex(h => h.includes('block'));
+      const latIdx   = header.findIndex(h => h.startsWith('lat'));
+      const lngIdx   = header.findIndex(h => h.startsWith('lon') || h.startsWith('lng'));
+      if (nameIdx < 0 || latIdx < 0 || lngIdx < 0) { alert('Cannot detect columns. Need: name, latitude, longitude.'); return; }
+      const parsed = [];
+      for (let i = 1; i < lines.length; i++) {
+        const cols = lines[i].split(',').map(c => c.trim().replace(/['"]/g,''));
+        const lat  = parseFloat(cols[latIdx].replace(/[^\d.\-]/g,''));
+        const lng  = parseFloat(cols[lngIdx].replace(/[^\d.\-]/g,''));
+        if (!cols[nameIdx] || isNaN(lat) || isNaN(lng)) continue;
+        parsed.push({ name: cols[nameIdx], block: blockIdx >= 0 ? cols[blockIdx] : '—', lat, lng });
+      }
+      if (!parsed.length) { alert('No valid rows found.'); return; }
+      villages = parsed;
+      Object.keys(cache).forEach(k => delete cache[k]);
+      populateDropdown();
+      document.getElementById('content').classList.remove('show');
+      document.getElementById('villageSelect').value = '';
+    };
+    reader.readAsText(file);
+  });
+
+  // ── Download A4 JPG with left/right margins ────────────────────────────────
+  document.getElementById('downloadBtn').addEventListener('click', async function () {
+    const btn = this;
+    btn.disabled = true; btn.textContent = 'Rendering…';
+
+    // A4 @ 150dpi: 1240 × 1754 px
+    // Margins: 80px left/right → content width = 1080px
+    const A4_W   = 1240;
+    const A4_H   = 1754;
+    const MARGIN = 80; // left & right margin in px
+
+    try {
+      const source = document.getElementById('capture');
+      const contentW = A4_W - MARGIN * 2;
+
+      // Capture at content width
+      const raw = await html2canvas(source, {
+        scale: contentW / source.offsetWidth,
+        useCORS: true,
+        backgroundColor: '#ffffff',
+        logging: false,
+        removeContainer: true,
+      });
+
+      // Compose onto A4 canvas with top/bottom centering + left/right margins
+      const a4  = document.createElement('canvas');
+      a4.width  = A4_W;
+      a4.height = A4_H;
+      const ctx = a4.getContext('2d');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, A4_W, A4_H);
+
+      const yOffset = Math.max(MARGIN, Math.floor((A4_H - raw.height) / 2));
+      ctx.drawImage(raw, MARGIN, yOffset);
+
+      const idx   = parseInt(document.getElementById('villageSelect').value);
+      const vname = (villages[idx]?.name || 'village').toLowerCase().replace(/\s+/g, '-');
+      const link  = document.createElement('a');
+      link.download = `${vname}-weather-a4.jpg`;
+      link.href = a4.toDataURL('image/jpeg', 0.95);
+      link.click();
+    } catch (err) {
+      alert('Image error: ' + err.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '↓ Download A4 JPG';
+    }
+  });
+
+  // ── Init ──────────────────────────────────────────────────────────────────
+  populateDropdown();
+  const d = new Date();
+  document.getElementById('headerDate').textContent =
+    d.toLocaleDateString('en-IN', {weekday:'short', day:'numeric', month:'short', year:'numeric'})
+    + ' · ' + d.toLocaleTimeString('en-IN', {hour:'2-digit', minute:'2-digit'});
+  </script>
+</body>
+</html>
