@@ -31,6 +31,15 @@
       font-size: 0.78rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
       padding: 0.22em 0.65em; border: 1.5px solid var(--accent); color: var(--accent);
     }
+    #langSelect {
+      font-family: var(--font);
+      font-size: 0.82rem; font-weight: 700;
+      color: var(--ink); background: var(--bg);
+      border: 2px solid var(--ink); padding: 0.3rem 0.7rem;
+      cursor: pointer; appearance: none; -webkit-appearance: none;
+      transition: border-color 0.15s;
+    }
+    #langSelect:focus { outline: none; border-color: var(--accent); }
 
     /* ── CONTROLS ── */
     .controls-row {
@@ -182,6 +191,38 @@
       display: flex; justify-content: space-between; flex-wrap: wrap; gap: 0.4rem;
     }
 
+    /* ── FORECAST SUMMARY ── */
+    .summary-block {
+      margin-top: 2.5rem;
+      border-top: 2px solid var(--ink);
+      padding-top: 1.2rem;
+    }
+    .summary-label {
+      font-size: 0.78rem; font-weight: 700; letter-spacing: 0.18em;
+      text-transform: uppercase; color: var(--muted); margin-bottom: 0.75rem;
+    }
+    .summary-text {
+      font-size: 1.08rem; font-weight: 400; color: var(--ink);
+      line-height: 1.6; letter-spacing: 0.01em;
+    }
+    .summary-text strong { font-weight: 700; color: var(--accent); }
+
+    /* Progress bar */
+    .summary-progress-wrap {
+      display: flex; align-items: center; gap: 1rem; margin-bottom: 0.5rem;
+    }
+    .summary-progress-label {
+      font-size: 0.72rem; color: var(--muted); white-space: nowrap; min-width: 160px;
+    }
+    .summary-progress-bar {
+      flex: 1; height: 4px; background: var(--rule); border-radius: 2px; overflow: hidden;
+    }
+    .summary-progress-fill {
+      height: 100%; width: 0%; background: var(--accent);
+      border-radius: 2px;
+      transition: width 0.35s ease;
+    }
+
     /* ── ACTIONS ── */
     .actions-row { margin-top: 1.8rem; display: flex; justify-content: flex-end; gap: 0.75rem; }
     .action-btn {
@@ -198,10 +239,14 @@
 <body>
 
   <div class="header-bar">
-    <span class="header-title">Gram Panchayat Weather Dashboard</span>
+    <span class="header-title" id="headerTitle">Gram Panchayat Weather Dashboard</span>
     <div class="header-right">
       <span class="api-badge">AccuWeather Standard API</span>
       <span class="header-date" id="headerDate"></span>
+      <select id="langSelect">
+        <option value="en-us">🇬🇧 English</option>
+        <option value="hi-in">🇮🇳 हिन्दी</option>
+      </select>
     </div>
   </div>
 
@@ -291,6 +336,12 @@
       <tbody id="hourlyBody"></tbody>
     </table>
 
+    <!-- FORECAST SUMMARY -->
+    <div class="summary-block" id="summaryBlock">
+      <div class="summary-label" id="summaryLabel">5-Day Outlook</div>
+      <div class="summary-text" id="summaryText"><span class="summary-loading">Generating summary<span class="blink">…</span></span></div>
+    </div>
+
     <div class="actions-row">
       <button class="action-btn outline-btn" id="refreshBtn">↺ Refresh</button>
       <button class="action-btn" id="downloadBtn">↓ Download A4 JPG</button>
@@ -301,6 +352,120 @@
   const API_KEY = 'QkPfh2F2G1nid8ck2LEnRGzgfSn33TKu';
   const BASE    = 'https://dataservice.accuweather.com';
 
+  // ── Language ──────────────────────────────────────────────────────────────
+  let currentLang = 'en-us';
+
+  const T = {
+    'en-us': {
+      dashTitle:'Gram Panchayat Weather Dashboard', village:'Village',
+      loadCsv:'↑ Load CSV', fetching:'Fetching AccuWeather data',
+      refresh:'↺ Refresh', download:'↓ Download A4 JPG', rendering:'Rendering…',
+      block:'Block', currentCond:'Current Conditions', live:'Live',
+      daily5:'5-Day Daily Forecast', daily:'Daily',
+      hourly12:'12-Hour Forecast', hourly:'Hourly',
+      selectVillage:'Select a village…',
+      vTemp:'Temp (°C)', vRF:'RealFeel® (°C)', vRFShade:'RF Shade (°C)',
+      vWetBulb:'Wet Bulb (°C)', vDew:'Dew Point (°C)', vHumidity:'Humidity',
+      vWind:'Wind', vGusts:'Wind Gusts', vVis:'Visibility',
+      vCloud:'Cloud Cover', vCeil:'Ceiling', vPressure:'Pressure',
+      vUV:'UV Index', vP1:'Precip (1hr)', vP24:'Precip (24hr)',
+      vSnow:'Snow Depth', vCond:'Condition', vDayNight:'Day / Night', vObs:'Obs. Time',
+      sApparent:'apparent temp', sShade:'in shade', sWetBulb:'wet bulb globe',
+      sDewPt:'dew point', sIndoor:'indoor', sKmh:'km/h', sGust:'km/h gust speed',
+      sKm:'km', sCloud:'cloud cover %', sCeil:'m cloud ceiling', sMb:'mb',
+      sMMHr:'mm last hour', sMM24:'mm last 24hr', sCm:'cm snow depth',
+      sIcon:'icon', sIsDay:'isDayTime', sObs:'observation time',
+      realfeel:'RealFeel®', shade:'Shade',
+      wind:'Wind', gusts:'Gusts', humidity:'Humidity',
+      uvIndex:'UV Index', visibility:'Visibility', pressure:'Pressure',
+      thDay:'Day', thHighC:'High °C', thLowC:'Low °C', thCond:'Condition',
+      thDayRain:'Day Rain %', thNightRain:'Night Rain %', thUV:'UV Index',
+      thWind:'Wind', thSunrise:'Sunrise', thSunset:'Sunset',
+      thTime:'Time', thTemp:'Temp °C', thRF:'RealFeel °C',
+      thRain:'Rain %', thPrecip:'Precip (mm)', thGusts:'Gusts',
+      thHumidity:'Humidity', thCloud:'Cloud %', thVis:'Visibility',
+      day:'Day', night:'Night', source:'AccuWeather Standard API',
+      summaryLabel:'5-Day Outlook', summaryGenerating:'Generating summary',
+    },
+    'hi-in': {
+      dashTitle:'ग्राम पंचायत मौसम डैशबोर्ड', village:'गाँव',
+      loadCsv:'↑ CSV लोड करें', fetching:'AccuWeather डेटा प्राप्त हो रहा है',
+      refresh:'↺ ताज़ा करें', download:'↓ A4 JPG डाउनलोड करें', rendering:'तैयार हो रहा है…',
+      block:'ब्लॉक', currentCond:'वर्तमान स्थिति', live:'लाइव',
+      daily5:'5 दिन का पूर्वानुमान', daily:'दैनिक',
+      hourly12:'12 घंटे का पूर्वानुमान', hourly:'प्रति घंटा',
+      selectVillage:'गाँव चुनें…',
+      vTemp:'तापमान (°C)', vRF:'रियलफील® (°C)', vRFShade:'RF छाया (°C)',
+      vWetBulb:'वेट बल्ब (°C)', vDew:'ओस बिंदु (°C)', vHumidity:'आर्द्रता',
+      vWind:'हवा', vGusts:'हवा के झोंके', vVis:'दृश्यता',
+      vCloud:'बादल आवरण', vCeil:'छत', vPressure:'दबाव',
+      vUV:'UV सूचकांक', vP1:'वर्षा (1 घंटा)', vP24:'वर्षा (24 घंटे)',
+      vSnow:'बर्फ की गहराई', vCond:'स्थिति', vDayNight:'दिन / रात', vObs:'अवलोकन समय',
+      sApparent:'अनुभव तापमान', sShade:'छाया में', sWetBulb:'वेट बल्ब ग्लोब',
+      sDewPt:'ओस बिंदु', sIndoor:'इनडोर', sKmh:'km/h', sGust:'km/h झोंका',
+      sKm:'km', sCloud:'बादल आवरण %', sCeil:'मी. बादल', sMb:'mb',
+      sMMHr:'mm पिछला घंटा', sMM24:'mm पिछले 24 घंटे', sCm:'cm बर्फ',
+      sIcon:'आइकन', sIsDay:'isDayTime', sObs:'अवलोकन समय',
+      realfeel:'रियलफील®', shade:'छाया',
+      wind:'हवा', gusts:'झोंके', humidity:'आर्द्रता',
+      uvIndex:'UV सूचकांक', visibility:'दृश्यता', pressure:'दबाव',
+      thDay:'दिन', thHighC:'अधिकतम °C', thLowC:'न्यूनतम °C', thCond:'स्थिति',
+      thDayRain:'दिन वर्षा %', thNightRain:'रात वर्षा %', thUV:'UV सूचकांक',
+      thWind:'हवा', thSunrise:'सूर्योदय', thSunset:'सूर्यास्त',
+      thTime:'समय', thTemp:'तापमान °C', thRF:'रियलफील °C',
+      thRain:'वर्षा %', thPrecip:'वर्षा (mm)', thGusts:'झोंके',
+      thHumidity:'आर्द्रता', thCloud:'बादल %', thVis:'दृश्यता',
+      day:'दिन', night:'रात', source:'AccuWeather Standard API',
+      summaryLabel:'5 दिन का सारांश', summaryGenerating:'सारांश तैयार हो रहा है',
+    }
+  };
+
+  function t(key) { return T[currentLang]?.[key] ?? T['en-us'][key] ?? key; }
+
+  function applyTranslations() {
+    const isHindi = currentLang === 'hi-in';
+    // Font: add Noto Sans Devanagari for Hindi
+    document.body.style.fontFamily = isHindi
+      ? "'Noto Sans Devanagari', Helvetica Neue, Helvetica, Arial, sans-serif"
+      : "Helvetica Neue, Helvetica, Arial, sans-serif";
+
+    document.getElementById('headerTitle').textContent    = t('dashTitle');
+    document.querySelector('.selector-label').textContent = t('village');
+    document.querySelector('label[for="fileInput"]').textContent = t('loadCsv');
+    document.getElementById('refreshBtn').textContent     = t('refresh');
+    document.getElementById('downloadBtn').textContent    = t('download');
+    document.getElementById('loadingBox').childNodes[0].textContent = t('fetching');
+
+    // Section labels
+    const sectionLabels = document.querySelectorAll('.section-label');
+    const sectionTags   = document.querySelectorAll('.section-tag');
+    if (sectionLabels[0]) sectionLabels[0].textContent = t('currentCond');
+    if (sectionTags[0])   sectionTags[0].textContent   = t('live');
+    if (sectionLabels[1]) sectionLabels[1].textContent = t('daily5');
+    if (sectionTags[1])   sectionTags[1].textContent   = t('daily');
+    if (sectionLabels[2]) sectionLabels[2].textContent = t('hourly12');
+    if (sectionTags[2])   sectionTags[2].textContent   = t('hourly');
+
+    // Daily table headers
+    const dThs = document.querySelectorAll('.fc-table thead th');
+    const dKeys = ['thDay','thHighC','thLowC','thCond','thDayRain','thNightRain','thUV','thWind','thSunrise','thSunset'];
+    dThs.forEach((th, i) => { if (dKeys[i]) th.textContent = t(dKeys[i]); });
+
+    // Hourly table headers
+    const hThs = document.querySelectorAll('.hourly-table thead th');
+    const hKeys = ['thTime','thTemp','thRF','thCond','thRain','thPrecip','thWind','thGusts','thHumidity','thUV','thCloud','thVis'];
+    hThs.forEach((th, i) => { if (hKeys[i]) th.textContent = t(hKeys[i]); });
+
+    // Village select placeholder
+    const sel = document.getElementById('villageSelect');
+    if (sel.options[0]?.disabled) sel.options[0].textContent = t('selectVillage');
+
+    // Summary label
+    const summaryLabelEl = document.getElementById('summaryLabel');
+    if (summaryLabelEl) summaryLabelEl.textContent = t('summaryLabel');
+  }
+
+  // ── Villages ──────────────────────────────────────────────────────────────
   let villages = [
     {"name":"Bijora","block":"Anta","lat":25.125521,"lng":76.414954},
     {"name":"Jai Nagar","block":"Anta","lat":25.12521,"lng":76.62962},
@@ -354,7 +519,8 @@
     return new Date(s).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' });
   }
   function dayName(s) {
-    return new Date(s).toLocaleDateString('en-IN', { weekday: 'long' });
+    const loc = currentLang === 'hi-in' ? 'hi-IN' : 'en-IN';
+    return new Date(s).toLocaleDateString(loc, { weekday: 'long' });
   }
   function fmtHour(s) {
     return new Date(s).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
@@ -362,22 +528,22 @@
 
   // ── API calls ─────────────────────────────────────────────────────────────
   async function getLocationKey(lat, lng) {
-    const r = await fetch(`${BASE}/locations/v1/cities/geoposition/search?apikey=${API_KEY}&q=${lat},${lng}&language=en-us`);
+    const r = await fetch(`${BASE}/locations/v1/cities/geoposition/search?apikey=${API_KEY}&q=${lat},${lng}&language=${currentLang}`);
     if (!r.ok) throw new Error(`Location API ${r.status}`);
     return (await r.json()).Key;
   }
   async function getCurrentConditions(key) {
-    const r = await fetch(`${BASE}/currentconditions/v1/${key}?apikey=${API_KEY}&details=true&language=en-us`);
+    const r = await fetch(`${BASE}/currentconditions/v1/${key}?apikey=${API_KEY}&details=true&language=${currentLang}`);
     if (!r.ok) throw new Error(`Current conditions ${r.status}`);
     return (await r.json())[0];
   }
   async function getDailyForecast(key) {
-    const r = await fetch(`${BASE}/forecasts/v1/daily/5day/${key}?apikey=${API_KEY}&details=true&metric=false&language=en-us`);
+    const r = await fetch(`${BASE}/forecasts/v1/daily/5day/${key}?apikey=${API_KEY}&details=true&metric=false&language=${currentLang}`);
     if (!r.ok) throw new Error(`Daily forecast ${r.status}`);
     return r.json();
   }
   async function getHourlyForecast(key) {
-    const r = await fetch(`${BASE}/forecasts/v1/hourly/12hour/${key}?apikey=${API_KEY}&details=true&metric=false&language=en-us`);
+    const r = await fetch(`${BASE}/forecasts/v1/hourly/12hour/${key}?apikey=${API_KEY}&details=true&metric=false&language=${currentLang}`);
     if (!r.ok) throw new Error(`Hourly forecast ${r.status}`);
     return r.json();
   }
@@ -397,41 +563,41 @@
 
     // Hero
     document.getElementById('heroLocation').textContent =
-      `${village.name}  ·  ${village.block} Block  ·  ${village.lat}°N  ${village.lng}°E`;
+      `${village.name}  ·  ${village.block} ${t('block')}  ·  ${village.lat}°N  ${village.lng}°E`;
     document.getElementById('heroTemp').textContent = fToC(c.Temperature?.Imperial?.Value);
     document.getElementById('heroCondition').textContent = c.WeatherText || '—';
     document.getElementById('heroRealFeel').textContent =
-      `RealFeel® ${fToC(c.RealFeelTemperature?.Imperial?.Value)}°C  ·  Shade ${fToC(c.RealFeelTemperatureShade?.Imperial?.Value)}°C`;
+      `${t('realfeel')} ${fToC(c.RealFeelTemperature?.Imperial?.Value)}°C  ·  ${t('shade')} ${fToC(c.RealFeelTemperatureShade?.Imperial?.Value)}°C`;
     document.getElementById('heroMeta').innerHTML = [
-      `<div class="hero-meta-item">Wind: <strong>${c.Wind?.Direction?.Localized || '—'} ${mphToKmh(c.Wind?.Speed?.Imperial?.Value)} km/h</strong></div>`,
-      `<div class="hero-meta-item">Gusts: <strong>${mphToKmh(c.WindGust?.Speed?.Imperial?.Value)} km/h</strong></div>`,
-      `<div class="hero-meta-item">Humidity: <strong>${pct(c.RelativeHumidity)}</strong></div>`,
-      `<div class="hero-meta-item">UV Index: <strong>${val(c.UVIndex)} — ${val(c.UVIndexText)}</strong></div>`,
-      `<div class="hero-meta-item">Visibility: <strong>${c.Visibility?.Imperial ? (c.Visibility.Imperial.Value * 1.60934).toFixed(1) + ' km' : '—'}</strong></div>`,
-      `<div class="hero-meta-item">Pressure: <strong>${c.Pressure?.Metric?.Value || '—'} mb</strong></div>`,
+      `<div class="hero-meta-item">${t('wind')}: <strong>${c.Wind?.Direction?.Localized || '—'} ${mphToKmh(c.Wind?.Speed?.Imperial?.Value)} km/h</strong></div>`,
+      `<div class="hero-meta-item">${t('gusts')}: <strong>${mphToKmh(c.WindGust?.Speed?.Imperial?.Value)} km/h</strong></div>`,
+      `<div class="hero-meta-item">${t('humidity')}: <strong>${pct(c.RelativeHumidity)}</strong></div>`,
+      `<div class="hero-meta-item">${t('uvIndex')}: <strong>${val(c.UVIndex)} — ${val(c.UVIndexText)}</strong></div>`,
+      `<div class="hero-meta-item">${t('visibility')}: <strong>${c.Visibility?.Imperial ? (c.Visibility.Imperial.Value * 1.60934).toFixed(1) + ' km' : '—'}</strong></div>`,
+      `<div class="hero-meta-item">${t('pressure')}: <strong>${c.Pressure?.Metric?.Value || '—'} mb</strong></div>`,
     ].join('');
 
     // Current conditions grid
     const cur_vars = [
-      { name: 'Temp (°C)',       value: `${fToC(c.Temperature?.Imperial?.Value)}°`,              sub: `${c.Temperature?.Imperial?.Value ?? '—'}°F` },
-      { name: 'RealFeel® (°C)', value: `${fToC(c.RealFeelTemperature?.Imperial?.Value)}°`,       sub: 'apparent temp' },
-      { name: 'RF Shade (°C)',   value: `${fToC(c.RealFeelTemperatureShade?.Imperial?.Value)}°`, sub: 'in shade' },
-      { name: 'Wet Bulb (°C)',   value: `${fToC(c.WetBulbTemperature?.Imperial?.Value)}°`,       sub: 'wet bulb globe' },
-      { name: 'Dew Point (°C)',  value: `${fToC(c.DewPoint?.Imperial?.Value)}°`,                 sub: 'dew point' },
-      { name: 'Humidity',        value: pct(c.RelativeHumidity),                                  sub: `indoor: ${pct(c.IndoorRelativeHumidity)}` },
-      { name: 'Wind',            value: mphToKmh(c.Wind?.Speed?.Imperial?.Value),                 sub: `km/h · ${c.Wind?.Direction?.Localized || '—'}`, color: 'blue' },
-      { name: 'Wind Gusts',      value: mphToKmh(c.WindGust?.Speed?.Imperial?.Value),             sub: 'km/h gust speed' },
-      { name: 'Visibility',      value: c.Visibility?.Imperial ? (c.Visibility.Imperial.Value * 1.60934).toFixed(1) : '—', sub: 'km' },
-      { name: 'Cloud Cover',     value: pct(c.CloudCover),                                        sub: 'cloud cover %' },
-      { name: 'Ceiling',         value: c.Ceiling?.Imperial ? Math.round(c.Ceiling.Imperial.Value * 0.3048) : '—', sub: 'm cloud ceiling' },
-      { name: 'Pressure',        value: `${c.Pressure?.Metric?.Value ?? '—'}`,                   sub: `mb · ${c.PressureTendency?.LocalizedText || '—'}` },
-      { name: 'UV Index',        value: val(c.UVIndex),                                            sub: c.UVIndexText || '—', color: c.UVIndex >= 8 ? 'accent' : '' },
-      { name: 'Precip (1hr)',    value: `${c.PrecipitationSummary?.PastHour?.Metric?.Value ?? 0}`, sub: 'mm last hour', color: 'blue' },
-      { name: 'Precip (24hr)',   value: `${c.PrecipitationSummary?.Past24Hours?.Metric?.Value ?? 0}`, sub: 'mm last 24hr', color: 'blue' },
-      { name: 'Snow Depth',      value: `${c.SnowDepth?.Metric?.Value ?? 0}`,                     sub: 'cm snow depth' },
-      { name: 'Condition',       value: c.WeatherText || '—',                                     sub: `icon: ${val(c.WeatherIcon)}`, sm: true },
-      { name: 'Day / Night',     value: c.IsDayTime ? 'Day' : 'Night',                            sub: `isDayTime: ${c.IsDayTime}` },
-      { name: 'Obs. Time',       value: c.LocalObservationDateTime ? new Date(c.LocalObservationDateTime).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}) : '—', sub: 'observation time', sm: true },
+      { name: t('vTemp'),     value: `${fToC(c.Temperature?.Imperial?.Value)}°`,              sub: `${c.Temperature?.Imperial?.Value ?? '—'}°F` },
+      { name: t('vRF'),       value: `${fToC(c.RealFeelTemperature?.Imperial?.Value)}°`,       sub: t('sApparent') },
+      { name: t('vRFShade'),  value: `${fToC(c.RealFeelTemperatureShade?.Imperial?.Value)}°`, sub: t('sShade') },
+      { name: t('vWetBulb'), value: `${fToC(c.WetBulbTemperature?.Imperial?.Value)}°`,        sub: t('sWetBulb') },
+      { name: t('vDew'),      value: `${fToC(c.DewPoint?.Imperial?.Value)}°`,                 sub: t('sDewPt') },
+      { name: t('vHumidity'), value: pct(c.RelativeHumidity),                                  sub: `${t('sIndoor')}: ${pct(c.IndoorRelativeHumidity)}` },
+      { name: t('vWind'),     value: mphToKmh(c.Wind?.Speed?.Imperial?.Value),                 sub: `${t('sKmh')} · ${c.Wind?.Direction?.Localized || '—'}`, color: 'blue' },
+      { name: t('vGusts'),    value: mphToKmh(c.WindGust?.Speed?.Imperial?.Value),             sub: t('sGust') },
+      { name: t('vVis'),      value: c.Visibility?.Imperial ? (c.Visibility.Imperial.Value * 1.60934).toFixed(1) : '—', sub: t('sKm') },
+      { name: t('vCloud'),    value: pct(c.CloudCover),                                        sub: t('sCloud') },
+      { name: t('vCeil'),     value: c.Ceiling?.Imperial ? Math.round(c.Ceiling.Imperial.Value * 0.3048) : '—', sub: t('sCeil') },
+      { name: t('vPressure'), value: `${c.Pressure?.Metric?.Value ?? '—'}`,                   sub: `${t('sMb')} · ${c.PressureTendency?.LocalizedText || '—'}` },
+      { name: t('vUV'),       value: val(c.UVIndex),                                            sub: c.UVIndexText || '—', color: c.UVIndex >= 8 ? 'accent' : '' },
+      { name: t('vP1'),       value: `${c.PrecipitationSummary?.PastHour?.Metric?.Value ?? 0}`, sub: t('sMMHr'), color: 'blue' },
+      { name: t('vP24'),      value: `${c.PrecipitationSummary?.Past24Hours?.Metric?.Value ?? 0}`, sub: t('sMM24'), color: 'blue' },
+      { name: t('vSnow'),     value: `${c.SnowDepth?.Metric?.Value ?? 0}`,                     sub: t('sCm') },
+      { name: t('vCond'),     value: c.WeatherText || '—',                                     sub: `${t('sIcon')}: ${val(c.WeatherIcon)}`, sm: true },
+      { name: t('vDayNight'), value: c.IsDayTime ? t('day') : t('night'),                     sub: `${t('sIsDay')}: ${c.IsDayTime}` },
+      { name: t('vObs'),      value: c.LocalObservationDateTime ? new Date(c.LocalObservationDateTime).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}) : '—', sub: t('sObs'), sm: true },
     ];
 
     document.getElementById('currentGrid').innerHTML = cur_vars.map(v => `
@@ -459,7 +625,7 @@
       </tr>`;
     }).join('');
 
-    // Hourly forecast — plain table, no scroll
+    // Hourly forecast
     document.getElementById('hourlyBody').innerHTML = (hourly || []).map(h => `
       <tr>
         <td>${fmtHour(h.DateTime)}</td>
@@ -479,11 +645,96 @@
     // Footer
     const now = new Date();
     document.getElementById('dataFooter').innerHTML =
-      `<span>AccuWeather Standard API · Key: ${data.key} · ${now.toLocaleString('en-IN')}</span>
-       <span>${village.lat}°N ${village.lng}°E · ${village.block} Block, India</span>`;
+      `<span>${t('source')} · Key: ${data.key} · ${now.toLocaleString('en-IN')}</span>
+       <span>${village.lat}°N ${village.lng}°E · ${village.block} ${t('block')}, India</span>`;
+
+    // Forecast summary (async, non-blocking)
+    generateSummary(village, daily);
   }
 
-  // ── Load ──────────────────────────────────────────────────────────────────
+  // ── Generate forecast summary via Claude API ────────────────────────────────
+  async function generateSummary(village, daily) {
+    const labelEl = document.getElementById('summaryLabel');
+    const textEl  = document.getElementById('summaryText');
+    labelEl.textContent = t('summaryLabel');
+
+    // Show progress bar
+    textEl.innerHTML = `
+      <div class="summary-progress-wrap">
+        <span class="summary-progress-label" id="progressLabel">${t('summaryGenerating')}…</span>
+        <div class="summary-progress-bar">
+          <div class="summary-progress-fill" id="progressFill"></div>
+        </div>
+      </div>`;
+
+    const fillEl = document.getElementById('progressFill');
+
+    // Animate progress bar: fill to ~85% while waiting, then jump to 100% on response
+    let progress = 0;
+    const steps = [
+      { target: 15, delay: 150 },
+      { target: 35, delay: 600 },
+      { target: 55, delay: 1200 },
+      { target: 70, delay: 2000 },
+      { target: 82, delay: 3200 },
+      { target: 88, delay: 5000 },
+    ];
+    let stepIdx = 0;
+    const advanceProgress = () => {
+      if (stepIdx < steps.length && fillEl) {
+        const step = steps[stepIdx++];
+        setTimeout(() => {
+          if (fillEl) fillEl.style.width = step.target + '%';
+          advanceProgress();
+        }, step.delay);
+      }
+    };
+    advanceProgress();
+
+    const days = (daily.DailyForecasts || []).map(d => {
+      const highC = ((d.Temperature?.Maximum?.Value - 32) * 5/9).toFixed(1);
+      const lowC  = ((d.Temperature?.Minimum?.Value  - 32) * 5/9).toFixed(1);
+      const rainD = d.Day?.PrecipitationProbability ?? 0;
+      const cond  = d.Day?.IconPhrase || '';
+      const date  = new Date(d.Date).toLocaleDateString('en-IN', {weekday:'short', month:'short', day:'numeric'});
+      return `${date}: High ${highC}°C, Low ${lowC}°C, ${cond}, Rain ${rainD}%`;
+    }).join('\n');
+
+    const langInstruction = currentLang === 'hi-in'
+      ? 'Write the summary in Hindi (Devanagari script).'
+      : 'Write the summary in English.';
+
+    const prompt = `You are a weather assistant. Based on this 5-day forecast for ${village.name}, ${village.block} Block, India, write a single concise sentence (max 30 words) summarising the overall weather outlook — mention the temperature trend, any rain risk, and general conditions. ${langInstruction} Return only the sentence, no preamble.
+
+Forecast data:
+${days}`;
+
+    try {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 100,
+          messages: [{ role: 'user', content: prompt }]
+        })
+      });
+      const data = await res.json();
+      const summary = data.content?.[0]?.text?.trim() || '—';
+
+      // Complete the bar then show text
+      if (fillEl) fillEl.style.width = '100%';
+      setTimeout(() => {
+        const formatted = summary.replace(/(\d+\.?\d*°[CF]?|\d+%)/g, '<strong>$1</strong>');
+        textEl.innerHTML = formatted;
+      }, 380);
+    } catch (err) {
+      textEl.textContent = '—';
+      console.error('Summary error:', err);
+    }
+  }
+
+    // ── Load village ──────────────────────────────────────────────────────────
   async function loadVillage(idx, forceRefresh) {
     document.getElementById('content').classList.remove('show');
     document.getElementById('errorBox').classList.remove('show');
@@ -505,7 +756,7 @@
   // ── Dropdown ──────────────────────────────────────────────────────────────
   function populateDropdown() {
     const sel = document.getElementById('villageSelect');
-    sel.innerHTML = '<option value="" disabled selected>Select a village…</option>';
+    sel.innerHTML = `<option value="" disabled selected>${t('selectVillage')}</option>`;
     const blocks = {};
     villages.forEach((v, i) => { (blocks[v.block] = blocks[v.block] || []).push({v, i}); });
     Object.keys(blocks).sort().forEach(block => {
@@ -528,6 +779,24 @@
     if (!isNaN(idx)) loadVillage(idx, true);
   });
 
+  // ── Language switcher ─────────────────────────────────────────────────────
+  document.getElementById('langSelect').addEventListener('change', function () {
+    currentLang = this.value;
+    // Load Noto Sans Devanagari on first Hindi switch
+    if (currentLang === 'hi-in' && !document.getElementById('notoFont')) {
+      const link = document.createElement('link');
+      link.id = 'notoFont';
+      link.rel = 'stylesheet';
+      link.href = 'https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;700&display=swap';
+      document.head.appendChild(link);
+    }
+    applyTranslations();
+    // Clear cache and re-fetch with new language if a village is selected
+    const idx = parseInt(document.getElementById('villageSelect').value);
+    Object.keys(cache).forEach(k => delete cache[k]);
+    if (!isNaN(idx)) loadVillage(idx, true);
+  });
+
   // ── CSV loader ────────────────────────────────────────────────────────────
   document.getElementById('fileInput').addEventListener('change', function () {
     const file = this.files[0]; if (!file) return;
@@ -539,7 +808,7 @@
       const blockIdx = header.findIndex(h => h.includes('block'));
       const latIdx   = header.findIndex(h => h.startsWith('lat'));
       const lngIdx   = header.findIndex(h => h.startsWith('lon') || h.startsWith('lng'));
-      if (nameIdx < 0 || latIdx < 0 || lngIdx < 0) { alert('Cannot detect columns. Need: name, latitude, longitude.'); return; }
+      if (nameIdx < 0 || latIdx < 0 || lngIdx < 0) { alert('Cannot detect columns.'); return; }
       const parsed = [];
       for (let i = 1; i < lines.length; i++) {
         const cols = lines[i].split(',').map(c => c.trim().replace(/['"]/g,''));
@@ -558,61 +827,40 @@
     reader.readAsText(file);
   });
 
-  // ── Download A4 JPG with left/right margins ────────────────────────────────
+  // ── Download A4 JPG ───────────────────────────────────────────────────────
   document.getElementById('downloadBtn').addEventListener('click', async function () {
     const btn = this;
-    btn.disabled = true; btn.textContent = 'Rendering…';
-
-    // A4 @ 150dpi: 1240 × 1754 px
-    // Margins: 80px left/right → content width = 1080px
-    const A4_W   = 1240;
-    const A4_H   = 1754;
-    const MARGIN = 80; // left & right margin in px
-
+    btn.disabled = true; btn.textContent = t('rendering');
+    const A4_W = 1240, A4_H = 1754, MARGIN = 80;
     try {
-      const source = document.getElementById('capture');
+      const source  = document.getElementById('capture');
       const contentW = A4_W - MARGIN * 2;
-
-      // Capture at content width
       const raw = await html2canvas(source, {
         scale: contentW / source.offsetWidth,
-        useCORS: true,
-        backgroundColor: '#ffffff',
-        logging: false,
-        removeContainer: true,
+        useCORS: true, backgroundColor: '#ffffff',
+        logging: false, removeContainer: true,
       });
-
-      // Compose onto A4 canvas with top/bottom centering + left/right margins
       const a4  = document.createElement('canvas');
-      a4.width  = A4_W;
-      a4.height = A4_H;
+      a4.width  = A4_W; a4.height = A4_H;
       const ctx = a4.getContext('2d');
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, A4_W, A4_H);
-
+      ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, A4_W, A4_H);
       const yOffset = Math.max(MARGIN, Math.floor((A4_H - raw.height) / 2));
       ctx.drawImage(raw, MARGIN, yOffset);
-
       const idx   = parseInt(document.getElementById('villageSelect').value);
       const vname = (villages[idx]?.name || 'village').toLowerCase().replace(/\s+/g, '-');
       const link  = document.createElement('a');
       link.download = `${vname}-weather-a4.jpg`;
       link.href = a4.toDataURL('image/jpeg', 0.95);
       link.click();
-    } catch (err) {
-      alert('Image error: ' + err.message);
-    } finally {
-      btn.disabled = false;
-      btn.textContent = '↓ Download A4 JPG';
-    }
+    } catch (err) { alert('Image error: ' + err.message); }
+    finally { btn.disabled = false; btn.textContent = t('download'); }
   });
 
   // ── Init ──────────────────────────────────────────────────────────────────
   populateDropdown();
+  applyTranslations();
   const d = new Date();
   document.getElementById('headerDate').textContent =
     d.toLocaleDateString('en-IN', {weekday:'short', day:'numeric', month:'short', year:'numeric'})
     + ' · ' + d.toLocaleTimeString('en-IN', {hour:'2-digit', minute:'2-digit'});
-  </script>
-</body>
-</html>
+  </script></html>
