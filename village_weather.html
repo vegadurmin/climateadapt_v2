@@ -195,17 +195,17 @@
     .summary-block {
       margin-top: 2.5rem;
       border-top: 2px solid var(--ink);
-      padding-top: 1.2rem;
+      padding-top: 1.3rem;
     }
     .summary-label {
       font-size: 0.78rem; font-weight: 700; letter-spacing: 0.18em;
-      text-transform: uppercase; color: var(--muted); margin-bottom: 0.75rem;
+      text-transform: uppercase; color: var(--muted); margin-bottom: 0.85rem;
     }
     .summary-text {
-      font-size: 1.08rem; font-weight: 400; color: var(--ink);
-      line-height: 1.6; letter-spacing: 0.01em;
+      font-size: 1.45rem; font-weight: 700; color: var(--ink);
+      line-height: 1.55; letter-spacing: 0.01em;
     }
-    .summary-text strong { font-weight: 700; color: var(--accent); }
+    .summary-text strong { color: var(--accent); }
 
     /* Progress bar */
     .summary-progress-wrap {
@@ -308,6 +308,12 @@
       <!-- DATA FOOTER (inside capture) -->
       <div class="data-footer" id="dataFooter"></div>
 
+      <!-- FORECAST SUMMARY (inside capture for download) -->
+      <div class="summary-block" id="summaryBlock">
+        <div class="summary-label" id="summaryLabel">Summary of next 5 days</div>
+        <div class="summary-text" id="summaryText"></div>
+      </div>
+
     </div><!-- /#capture -->
 
     <!-- 12-HOUR HOURLY FORECAST (on screen only, not in download) -->
@@ -335,12 +341,6 @@
       </thead>
       <tbody id="hourlyBody"></tbody>
     </table>
-
-    <!-- FORECAST SUMMARY -->
-    <div class="summary-block" id="summaryBlock">
-      <div class="summary-label" id="summaryLabel">5-Day Outlook</div>
-      <div class="summary-text" id="summaryText"><span class="summary-loading">Generating summary<span class="blink">…</span></span></div>
-    </div>
 
     <div class="actions-row">
       <button class="action-btn outline-btn" id="refreshBtn">↺ Refresh</button>
@@ -385,7 +385,7 @@
       thRain:'Rain %', thPrecip:'Precip (mm)', thGusts:'Gusts',
       thHumidity:'Humidity', thCloud:'Cloud %', thVis:'Visibility',
       day:'Day', night:'Night', source:'AccuWeather Standard API',
-      summaryLabel:'5-Day Outlook', summaryGenerating:'Generating summary',
+      summaryLabel:'Summary of next 5 days', summaryGenerating:'Generating summary',
     },
     'hi-in': {
       dashTitle:'ग्राम पंचायत मौसम डैशबोर्ड', village:'गाँव',
@@ -416,7 +416,7 @@
       thRain:'वर्षा %', thPrecip:'वर्षा (mm)', thGusts:'झोंके',
       thHumidity:'आर्द्रता', thCloud:'बादल %', thVis:'दृश्यता',
       day:'दिन', night:'रात', source:'AccuWeather Standard API',
-      summaryLabel:'5 दिन का सारांश', summaryGenerating:'सारांश तैयार हो रहा है',
+      summaryLabel:'अगले 5 दिनों का सारांश', summaryGenerating:'सारांश तैयार हो रहा है',
     }
   };
 
@@ -669,8 +669,7 @@
 
     const fillEl = document.getElementById('progressFill');
 
-    // Animate progress bar: fill to ~85% while waiting, then jump to 100% on response
-    let progress = 0;
+    // Animate progress bar
     const steps = [
       { target: 15, delay: 150 },
       { target: 35, delay: 600 },
@@ -700,36 +699,125 @@
       return `${date}: High ${highC}°C, Low ${lowC}°C, ${cond}, Rain ${rainD}%`;
     }).join('\n');
 
-    const langInstruction = currentLang === 'hi-in'
-      ? 'Write the summary in Hindi (Devanagari script).'
-      : 'Write the summary in English.';
+    // Return cached summary if already generated for this village
+    const villageIdx = parseInt(document.getElementById('villageSelect').value);
+    if (cache[villageIdx]?.summary) {
+      const cachedEn = cache[villageIdx].summary;
+      // If Hindi and we already have a Hindi translation cached, use it
+      if (currentLang === 'hi-in' && cache[villageIdx].summaryHi) {
+        if (fillEl) fillEl.style.width = '100%';
+        setTimeout(() => {
+          const formatted = cache[villageIdx].summaryHi.replace(/(\d+\.?\d*°[CF]?|\d+%)/g, '<strong>$1</strong>');
+          textEl.innerHTML = formatted;
+        }, 200);
+        return;
+      }
+      // If English, just show cached
+      if (currentLang === 'en-us') {
+        if (fillEl) fillEl.style.width = '100%';
+        setTimeout(() => {
+          const formatted = cachedEn.replace(/(\d+\.?\d*°[CF]?|\d+%)/g, '<strong>$1</strong>');
+          textEl.innerHTML = formatted;
+        }, 200);
+        return;
+      }
+      // Hindi but no cached translation yet — translate the cached English
+      const translatePrompt2 = `Translate the following weather summary sentence into Hindi (Devanagari script). Keep all numbers, temperatures (°C), and percentages exactly as they are. Return only the translated sentence, nothing else.
 
-    const prompt = `You are a weather assistant. Based on this 5-day forecast for ${village.name}, ${village.block} Block, India, write a single concise sentence (max 30 words) summarising the overall weather outlook — mention the temperature trend, any rain risk, and general conditions. ${langInstruction} Return only the sentence, no preamble.
+Sentence: "${cachedEn}"`;
+      try {
+        const rTr = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer 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' },
+          body: JSON.stringify({ model: 'llama-3.1-8b-instant', max_tokens: 120, messages: [{ role: 'user', content: translatePrompt2 }] })
+        });
+        const dTr = await rTr.json();
+        const hiText = dTr.choices?.[0]?.message?.content?.trim() || cachedEn;
+        if (cache[villageIdx]) cache[villageIdx].summaryHi = hiText;
+        if (fillEl) fillEl.style.width = '100%';
+        setTimeout(() => {
+          const formatted = hiText.replace(/(\d+\.?\d*°[CF]?|\d+%)/g, '<strong>$1</strong>');
+          textEl.innerHTML = formatted;
+        }, 380);
+      } catch {
+        textEl.innerHTML = cachedEn;
+      }
+      return;
+    }
+
+    // Always generate English summary first
+    const englishPrompt = `You are a weather assistant. Based on this 5-day forecast for ${village.name}, ${village.block} Block, India, write a single concise sentence (max 30 words) summarising the overall weather outlook. You MUST include at least one specific numeric value (e.g. a temperature like 36°C or rain probability like 20%). Mention temperature trend, rain risk, and general conditions. Write in English only. Return only the sentence, no preamble or explanation.
 
 Forecast data:
 ${days}`;
 
     try {
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
+      // Step 1: Get English summary
+      const res1 = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer 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'
+        },
         body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
+          model: 'llama-3.1-8b-instant',
           max_tokens: 100,
-          messages: [{ role: 'user', content: prompt }]
+          messages: [{ role: 'user', content: englishPrompt }]
         })
       });
-      const data = await res.json();
-      const summary = data.content?.[0]?.text?.trim() || '—';
+
+      if (!res1.ok) {
+        const err = await res1.json().catch(() => ({}));
+        throw new Error(err?.error?.message || `HTTP ${res1.status}`);
+      }
+
+      const data1 = await res1.json();
+      const englishSummary = data1.choices?.[0]?.message?.content?.trim() || '—';
+
+      // Step 2: If Hindi, translate the English summary
+      let finalSummary = englishSummary;
+      if (currentLang === 'hi-in') {
+        const translatePrompt = `Translate the following weather summary sentence into Hindi (Devanagari script). Keep all numbers, temperatures (°C), and percentages exactly as they are. Return only the translated sentence, nothing else.
+
+Sentence: "${englishSummary}"`;
+
+        const res2 = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer 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'
+          },
+          body: JSON.stringify({
+            model: 'llama-3.1-8b-instant',
+            max_tokens: 120,
+            messages: [{ role: 'user', content: translatePrompt }]
+          })
+        });
+
+        if (res2.ok) {
+          const data2 = await res2.json();
+          finalSummary = data2.choices?.[0]?.message?.content?.trim() || englishSummary;
+          if (cache[villageIdx]) cache[villageIdx].summaryHi = finalSummary;
+        }
+      }
+
+      // Cache the English summary (language-independent)
+      if (cache[villageIdx]) cache[villageIdx].summary = englishSummary;
 
       // Complete the bar then show text
       if (fillEl) fillEl.style.width = '100%';
       setTimeout(() => {
-        const formatted = summary.replace(/(\d+\.?\d*°[CF]?|\d+%)/g, '<strong>$1</strong>');
+        const formatted = finalSummary.replace(/(\d+\.?\d*°[CF]?|\d+%)/g, '<strong>$1</strong>');
         textEl.innerHTML = formatted;
       }, 380);
+
     } catch (err) {
-      textEl.textContent = '—';
+      if (fillEl) fillEl.style.width = '100%';
+      setTimeout(() => {
+        textEl.style.color = 'var(--muted)';
+        textEl.style.fontStyle = 'italic';
+        textEl.textContent = 'Summary unavailable: ' + err.message;
+      }, 380);
       console.error('Summary error:', err);
     }
   }
@@ -776,7 +864,11 @@ ${days}`;
   });
   document.getElementById('refreshBtn').addEventListener('click', () => {
     const idx = parseInt(document.getElementById('villageSelect').value);
-    if (!isNaN(idx)) loadVillage(idx, true);
+    if (!isNaN(idx)) {
+      // Clear summary cache so refresh gets a fresh summary
+      if (cache[idx]) { delete cache[idx].summary; delete cache[idx].summaryHi; }
+      loadVillage(idx, true);
+    }
   });
 
   // ── Language switcher ─────────────────────────────────────────────────────
