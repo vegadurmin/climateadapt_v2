@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>India Lightning Tracker</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=JetBrains+Mono:wght@400;500;700&family=Sora:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#0a0e17;--panel:#0f1626;--panel-2:#141d31;--line:#1f2d4a;--ink:#e8edf7;
+    --muted:#7f8db0;--bolt:#ffe14d;--bolt-2:#ff8a3d;--hot:#ff3b6b;--cool:#3d7bff}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{font-family:'Sora',sans-serif;background:var(--bg);color:var(--ink);overflow:hidden}
+  #app{display:grid;grid-template-columns:340px 1fr;height:100vh}
+  aside{background:linear-gradient(180deg,var(--panel),#0b1120);border-right:1px solid var(--line);
+    padding:26px 24px;display:flex;flex-direction:column;gap:20px;overflow-y:auto;position:relative}
+  aside::before{content:"";position:absolute;inset:0;pointer-events:none;
+    background:radial-gradient(120% 60% at 0% 0%,rgba(255,225,77,.06),transparent 60%)}
+  .brand{display:flex;align-items:center;gap:12px;z-index:1}
+  .bolt-mark{width:42px;height:42px;flex:0 0 42px;display:grid;place-items:center;
+    background:linear-gradient(145deg,var(--bolt),var(--bolt-2));border-radius:11px;
+    box-shadow:0 0 22px rgba(255,170,60,.45);color:#1a1200;font-size:24px}
+  .brand h1{font-family:'Bebas Neue',sans-serif;font-weight:400;font-size:30px;letter-spacing:1.5px;line-height:.95}
+  .brand span{color:var(--muted);font-size:11px;letter-spacing:3px;text-transform:uppercase}
+  .field{display:flex;flex-direction:column;gap:7px;z-index:1}
+  .field label{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);font-weight:600}
+  select,input{background:var(--panel-2);border:1px solid var(--line);color:var(--ink);padding:11px 13px;
+    border-radius:9px;font-family:'JetBrains Mono',monospace;font-size:13px;width:100%;transition:border-color .2s,box-shadow .2s}
+  select:focus,input:focus{outline:none;border-color:var(--bolt);box-shadow:0 0 0 3px rgba(255,225,77,.12)}
+  .btn{border:none;border-radius:10px;padding:14px;cursor:pointer;font-family:'Sora';font-weight:600;
+    font-size:14px;letter-spacing:.5px;transition:transform .12s,filter .2s;
+    background:linear-gradient(145deg,var(--bolt),var(--bolt-2));color:#1a1200;box-shadow:0 6px 20px rgba(255,150,40,.3);z-index:1}
+  .btn:hover{filter:brightness(1.08)}.btn:active{transform:translateY(1px) scale(.99)}
+  .btn:disabled{filter:grayscale(.7) brightness(.7);cursor:not-allowed;box-shadow:none}
+  .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;z-index:1}
+  .stat{background:var(--panel-2);border:1px solid var(--line);border-radius:11px;padding:13px 14px}
+  .stat .n{font-family:'Bebas Neue';font-size:32px;line-height:1;color:var(--bolt)}
+  .stat.s2 .n{color:var(--cool)}
+  .stat .l{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-top:4px}
+  .legend{display:flex;flex-direction:column;gap:9px;z-index:1}
+  .legend .row{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--muted)}
+  .dot{width:13px;height:13px;border-radius:50%;flex:0 0 13px}
+  .progress-wrap{z-index:1}
+  .bar{height:6px;background:var(--panel-2);border-radius:99px;overflow:hidden;border:1px solid var(--line)}
+  .bar > i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--bolt),var(--bolt-2));transition:width .3s}
+  .status{font-size:11px;color:var(--muted);font-family:'JetBrains Mono';margin-top:7px;min-height:14px;word-break:break-word}
+  .warn{background:rgba(255,59,107,.08);border:1px solid rgba(255,59,107,.3);border-radius:9px;
+    padding:11px 13px;font-size:11px;color:#ffb3c4;line-height:1.5;z-index:1;display:none}
+  .foot{margin-top:auto;font-size:10px;color:#4a597a;line-height:1.6;z-index:1}
+  .foot code{color:var(--muted)}
+  #map{height:100vh;background:#070a12}
+  .leaflet-container{background:#070a12;font-family:'Sora'}
+  .strike-icon{border-radius:50%;box-shadow:0 0 6px 1px currentColor,0 0 14px 3px currentColor;animation:pop .5s ease-out}
+  @keyframes pop{0%{transform:scale(0);opacity:0}60%{transform:scale(1.5);opacity:1}100%{transform:scale(1)}}
+  .leaflet-popup-content-wrapper{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:11px}
+  .leaflet-popup-tip{background:var(--panel);border:1px solid var(--line)}
+  .pop{font-family:'JetBrains Mono';font-size:12px;line-height:1.7}.pop b{color:var(--bolt)}
+  .map-badge{position:absolute;top:16px;right:16px;z-index:1000;background:rgba(15,22,38,.85);
+    backdrop-filter:blur(8px);border:1px solid var(--line);border-radius:10px;padding:9px 14px;
+    font-family:'JetBrains Mono';font-size:11px;color:var(--muted)}
+  .map-badge b{color:var(--bolt)}
+  @media(max-width:760px){#app{grid-template-columns:1fr;grid-template-rows:auto 1fr}
+    aside{height:auto;max-height:50vh}#map{height:50vh}}
+</style>
+</head>
+<body>
+<div id="app">
+  <aside>
+    <div class="brand">
+      <div class="bolt-mark">&#9889;</div>
+      <div><h1>India Lightning</h1><span>Live Strike Tracker</span></div>
+    </div>
+
+    <div class="field">
+      <label>Time Window</label>
+      <select id="window">
+        <option value="1">Last 1 hour</option>
+        <option value="3">Last 3 hours</option>
+        <option value="6" selected>Last 6 hours</option>
+        <option value="12">Last 12 hours</option>
+        <option value="24">Last 24 hours</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label>Grid Density</label>
+      <select id="density">
+        <option value="3.2">Coarse &mdash; ~80 calls</option>
+        <option value="2.6" selected>Balanced &mdash; ~120 calls</option>
+        <option value="2.0">Fine &mdash; ~210 calls</option>
+      </select>
+    </div>
+
+    <button class="btn" id="go">&#9889; Scan India</button>
+
+    <div class="progress-wrap">
+      <div class="bar"><i id="barfill"></i></div>
+      <div class="status" id="status">Ready. Press scan to begin.</div>
+    </div>
+
+    <div class="stat-grid">
+      <div class="stat"><div class="n" id="statStrikes">0</div><div class="l">Strikes</div></div>
+      <div class="stat s2"><div class="n" id="statCells">0</div><div class="l">Cells scanned</div></div>
+    </div>
+
+    <div class="legend">
+      <label style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);font-weight:600">Recency</label>
+      <div class="row"><span class="dot" style="background:#ffe14d"></span> Freshest</div>
+      <div class="row"><span class="dot" style="background:#ff8a3d"></span> Recent</div>
+      <div class="row"><span class="dot" style="background:#ff3b6b"></span> Older</div>
+      <div class="row"><span class="dot" style="background:#3d7bff"></span> Oldest in window</div>
+    </div>
+
+    <div class="warn" id="cfgWarn">
+      <b>Worker URL not set.</b> Edit <code>WORKER_URL</code> at the top of the script to your deployed Cloudflare Worker address.
+    </div>
+
+    <div class="foot">
+      Data via <code>OpenWeather</code> through a Cloudflare Worker proxy. Each grid cell = one API call (50&nbsp;km radius). Results are edge-cached ~5&nbsp;min, so repeat visitors don't re-spend quota.
+    </div>
+  </aside>
+
+  <div style="position:relative">
+    <div id="map"></div>
+    <div class="map-badge">Window: <b id="badgeWin">6h</b> &nbsp;&middot;&nbsp; <b id="badgeTime">&mdash;</b></div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+// ====== EDIT THIS: your deployed Cloudflare Worker URL ======
+const WORKER_URL = "https://twilight-surf-2d5c.vegadurmin.workers.dev";
+// ============================================================
+
+const RADIUS = 50;
+const BBOX = { south:7.5, north:35.5, west:67.5, east:97.5 };
+
+if(WORKER_URL.indexOf("YOUR-WORKER-NAME")!==-1){
+  document.getElementById('cfgWarn').style.display='block';
+}
+
+const map = L.map('map',{zoomControl:true,attributionControl:false}).setView([22.5,80],5);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{maxZoom:19,subdomains:'abcd'}).addTo(map);
+L.rectangle([[BBOX.south,BBOX.west],[BBOX.north,BBOX.east]],
+  {color:'#ffe14d',weight:1,fillOpacity:0,dashArray:'4 6',opacity:.35}).addTo(map);
+let strikeLayer = L.layerGroup().addTo(map);
+
+const $ = id => document.getElementById(id);
+const fmt = d => d.toISOString().slice(0,19)+'Z';
+
+function buildGrid(stepDeg){
+  const pts=[];
+  for(let lat=BBOX.south; lat<=BBOX.north; lat+=stepDeg)
+    for(let lon=BBOX.west; lon<=BBOX.east; lon+=stepDeg)
+      pts.push([+lat.toFixed(3),+lon.toFixed(3)]);
+  return pts;
+}
+function ageColor(f){return f<0.25?'#ffe14d':f<0.5?'#ff8a3d':f<0.75?'#ff3b6b':'#3d7bff';}
+function strikeMarker(lat,lon,frac,ts,q){
+  const c=ageColor(frac),size=8;
+  const icon=L.divIcon({className:'',
+    html:'<div class="strike-icon" style="width:'+size+'px;height:'+size+'px;background:'+c+';color:'+c+'"></div>',
+    iconSize:[size,size],iconAnchor:[size/2,size/2]});
+  const m=L.marker([lat,lon],{icon});
+  const when=ts?new Date(ts).toUTCString().replace('GMT','UTC'):'unknown';
+  m.bindPopup('<div class="pop"><b>&#9889; Lightning strike</b><br>lat '+lat.toFixed(3)+', lon '+lon.toFixed(3)+'<br>'+when+(q?'<br>quality: '+q:'')+'</div>');
+  return m;
+}
+async function fetchCell(lat,lon,start,end){
+  const url=WORKER_URL+'?lat='+lat+'&lon='+lon+'&radius='+RADIUS+
+    '&start_date='+encodeURIComponent(start)+'&end_date='+encodeURIComponent(end);
+  try{
+    const r=await fetch(url);
+    if(!r.ok){let body='';try{body=JSON.stringify(await r.json());}catch(e){}
+      return {ok:false,code:r.status,body:body,data:[]};}
+    const j=await r.json();
+    let arr=Array.isArray(j)?j:(j.lightnings||j.strikes||j.data||j.list||[]);
+    return {ok:true,data:arr};
+  }catch(e){return {ok:false,err:String(e),network:true,data:[]};}
+}
+function dkey(s){if(s.id)return s.id;var la=s.lat!=null?s.lat:s.latitude,lo=s.lon!=null?s.lon:(s.lng!=null?s.lng:s.longitude),
+  t=s.datetime||s.timestamp||s.time||s.dt||s.date||'';return la+'|'+lo+'|'+t;}
+
+let running=false;
+async function scan(){
+  if(running)return; running=true;
+  const btn=$('go'); btn.disabled=true; btn.textContent='Scanning...';
+  strikeLayer.clearLayers();
+  const hours=+$('window').value, step=+$('density').value;
+  const end=new Date(), start=new Date(end.getTime()-hours*3600*1000);
+  const startStr=fmt(start), endStr=fmt(end);
+  const startMs=start.getTime(), spanMs=end.getTime()-startMs;
+  $('badgeWin').textContent=hours+'h';
+  $('badgeTime').textContent=end.toUTCString().slice(17,25)+' UTC';
+
+  const grid=buildGrid(step);
+  const seen=new Set();
+  let total=0,done=0,errors=0,firstErr='';
+
+  for(const cell of grid){
+    const lat=cell[0],lon=cell[1];
+    const res=await fetchCell(lat,lon,startStr,endStr);
+    done++;
+    if(!res.ok){errors++; if(!firstErr) firstErr=res.code?('HTTP '+res.code+' '+(res.body||'')):res.err;}
+    for(const s of res.data){
+      const k=dkey(s); if(seen.has(k))continue; seen.add(k);
+      const la=s.lat!=null?s.lat:s.latitude, lo=s.lon!=null?s.lon:(s.lng!=null?s.lng:s.longitude);
+      if(la==null||lo==null)continue;
+      let tms=null; const t=s.datetime||s.timestamp||s.time||s.dt||s.date;
+      if(typeof t==='number') tms=t>1e12?t:t*1000; else if(t) tms=new Date(t).getTime();
+      const frac=tms?Math.min(1,Math.max(0,1-(tms-startMs)/spanMs)):0.5;
+      strikeMarker(la,lo,frac,tms,s.quality).addTo(strikeLayer); total++;
+    }
+    $('barfill').style.width=(done/grid.length*100)+'%';
+    $('statStrikes').textContent=total;
+    $('statCells').textContent=done+'/'+grid.length;
+    $('status').textContent=errors?('Scanning... '+done+'/'+grid.length+' &middot; '+errors+' err'):('Scanning... '+done+'/'+grid.length+' cells');
+    await new Promise(r=>setTimeout(r,300)); // Worker caches, so pacing can be gentler
+  }
+  btn.disabled=false; btn.textContent='\u26A1 Scan India'; running=false;
+  $('status').textContent='Done. '+total+' strikes across '+done+' cells'+(errors?(' &middot; '+errors+' errored ('+firstErr+')'):'')+'.';
+}
+$('go').addEventListener('click',scan);
+</script>
+</body>
+</html>
