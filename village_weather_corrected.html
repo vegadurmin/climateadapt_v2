@@ -185,8 +185,9 @@ font-size:10px;color:var(--muted);font-weight:500}
 </div>
 <script>
 /*──── CONFIGURATION ────*/
-const OM_KEY='XLv82nM2BPBe6qVe';
-const GROQ_KEY='';
+// All API keys now live server-side in the Cloudflare Worker. The browser
+// only knows the Worker URL; it never sees the Open-Meteo or Groq keys.
+const WORKER_BASE='https://twilight-surf-2d5c.vegadurmin.workers.dev';
 
 /*──── MAP (Leaflet + OpenStreetMap, completely free) ────*/
 let leafMap=null,leafMarker=null;
@@ -206,7 +207,7 @@ function initMap(lat,lon,name){
 }
 
 /*──── LIGHTNING MAP (OpenWeather via Cloudflare Worker proxy) ────*/
-const LT_WORKER='https://twilight-surf-2d5c.vegadurmin.workers.dev';
+const LT_WORKER=WORKER_BASE+'/lightning';
 // 50x50 km box centred on village. Box half-side ~25 km; the 50 km radius
 // (matching the original lightning-map.html) fully covers the box corners (~35 km from centre).
 const LT_RADIUS=50;            // km — OpenWeather-accepted value
@@ -344,12 +345,12 @@ function onVillageChange(){
 
 async function fetchAll(){
   if(!selV)return;
-  const url='https://customer-api.open-meteo.com/v1/forecast?'
+  const url=WORKER_BASE+'/openmeteo?'
     +'latitude='+selV.lat+'&longitude='+selV.lon
     +'&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,wind_speed_10m,is_day,cloud_cover,surface_pressure'
     +'&hourly=temperature_2m,precipitation_probability,weather_code,is_day'
     +'&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,weather_code'
-    +'&timezone=auto&forecast_days=16&apikey='+OM_KEY;
+    +'&timezone=auto&forecast_days=16';
   try{
     const r=await fetch(url);const d=await r.json();
     renderCurr(d);renderHrly(d);renderFc(d);
@@ -466,7 +467,7 @@ async function genSummary(lg){
   if(sumCache[key]){document.getElementById('summary').innerHTML=sumCache[key];return}
   const el=document.getElementById('summary');
   el.innerHTML='<span class="sum-loading">Generating summary...</span>';
-  if(!dailyD||!GROQ_KEY){el.innerHTML='<span class="sum-loading">Summary unavailable</span>';return}
+  if(!dailyD){el.innerHTML='<span class="sum-loading">Summary unavailable</span>';return}
 
   // Build corrected lookup
   const cLookup={};
@@ -487,9 +488,9 @@ async function genSummary(lg){
     +'and rainfall amounts. Mention agricultural implications (sowing, irrigation, harvest). '
     +'Be concise and actionable.\n\n'+ctx;
   try{
-    const er=await fetch('https://api.groq.com/openai/v1/chat/completions',{
-      method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+GROQ_KEY},
-      body:JSON.stringify({model:'llama-3.1-8b-instant',messages:[{role:'user',content:enP}],
+    const er=await fetch(WORKER_BASE+'/groq',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({messages:[{role:'user',content:enP}],
         max_tokens:250,temperature:0.3})
     });
     const ed=await er.json();
@@ -499,9 +500,9 @@ async function genSummary(lg){
 
     const lnm={hi:'Hindi',mr:'Marathi',ta:'Tamil'};
     const tp='Translate the following weather summary to '+lnm[lg]+'. Keep all numbers, °C, and mm unchanged. Output only the translation.\n\n'+enS;
-    const tr=await fetch('https://api.groq.com/openai/v1/chat/completions',{
-      method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+GROQ_KEY},
-      body:JSON.stringify({model:'llama-3.1-8b-instant',messages:[{role:'user',content:tp}],
+    const tr=await fetch(WORKER_BASE+'/groq',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({messages:[{role:'user',content:tp}],
         max_tokens:350,temperature:0.2})
     });
     const td=await tr.json();
