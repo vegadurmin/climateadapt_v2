@@ -207,8 +207,9 @@ function initMap(lat,lon,name){
 
 /*──── LIGHTNING MAP (OpenWeather via Cloudflare Worker proxy) ────*/
 const LT_WORKER='https://twilight-surf-2d5c.vegadurmin.workers.dev';
-// 50x50 km box -> half-diagonal radius ~ 50*0.75 km covers the cell (per spec: 50*1.5/... -> 75 km radius)
-const LT_RADIUS=75;            // km, single cell centred on village
+// 50x50 km box centred on village. Box half-side ~25 km; the 50 km radius
+// (matching the original lightning-map.html) fully covers the box corners (~35 km from centre).
+const LT_RADIUS=50;            // km — OpenWeather-accepted value
 const LT_HALF_DEG=0.225;       // ~25 km in latitude -> 50 km box side
 let ltMap=null,ltMarker=null,ltBox=null,ltLayer=null,ltToken=0;
 
@@ -265,9 +266,9 @@ async function loadLightning(lat,lon){
     if(myToken!==ltToken)return;            // stale, a newer village was selected
     if(!r.ok){
       let reason='';
-      try{reason=(await r.text()).slice(0,60);}catch(e){}
-      statusEl.textContent='HTTP '+r.status+(reason?' · '+reason:'');
-      console.warn('lightning worker',r.status,reason);
+      try{reason=await r.text();}catch(e){}
+      statusEl.textContent='HTTP '+r.status+(reason?' · '+reason.slice(0,80):'');
+      console.warn('lightning worker HTTP '+r.status+' — full body:',reason);
       return;
     }
     const j=await r.json();
