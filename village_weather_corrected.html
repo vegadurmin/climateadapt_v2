@@ -129,7 +129,14 @@ font-size:10px;color:var(--muted);font-weight:500}
 .cal-bar.harv{background:var(--warm)}
 .cal-bar.wrap2{border-top-left-radius:0;border-bottom-left-radius:0}
 .cal-bar.wrap1{border-top-right-radius:0;border-bottom-right-radius:0}
-.cal-legend{display:flex;gap:16px;margin-top:6px;font-size:10px;color:var(--muted)}
+.cal-band{position:absolute;top:0;height:100%;background:#FBEFB6;z-index:0}
+.cal-bar{z-index:1}
+.cal-today{position:absolute;top:-3px;height:32px;width:2px;background:#111;z-index:3}
+.cal-today::after{content:'';position:absolute;top:-4px;left:-3px;border-left:4px solid transparent;
+  border-right:4px solid transparent;border-top:5px solid #111}
+.cal-legend{display:flex;gap:14px;margin-top:8px;font-size:10px;color:var(--muted);flex-wrap:wrap}
+.cal-leg .sw.grow{background:#FBEFB6;border:1px solid #E8D98A}
+.cal-leg .sw.today{background:#111}
 .cal-leg{display:flex;align-items:center;gap:5px}
 .cal-leg .sw{width:12px;height:12px;border-radius:3px}
 .cal-leg .sw.sow{background:var(--accent)}
@@ -593,6 +600,8 @@ const CROP_T={
   calTitle:{en:'Crop calendar',hi:'फसल कैलेंडर',mr:'पीक दिनदर्शिका',ta:'பயிர் நாட்காட்டி'},
   sowing:{en:'Sowing',hi:'बुवाई',mr:'पेरणी',ta:'விதைப்பு'},
   harvest:{en:'Harvest',hi:'कटाई',mr:'कापणी',ta:'அறுவடை'},
+  growing:{en:'Growing season',hi:'वृद्धि काल',mr:'वाढीचा काळ',ta:'வளர்ச்சி காலம்'},
+  today:{en:'Today',hi:'आज',mr:'आज',ta:'இன்று'},
   nearest:{en:'nearest district',hi:'निकटतम जिला',mr:'जवळचा जिल्हा',ta:'அருகிலுள்ள மாவட்டம்'},
   noCal:{en:'No calendar data for this crop here.',hi:'इस फसल का कैलेंडर डेटा उपलब्ध नहीं।',mr:'या पिकाची दिनदर्शिका उपलब्ध नाही.',ta:'இந்தப் பயிருக்கு நாட்காட்டி இல்லை.'}
 };
@@ -639,28 +648,17 @@ function populateCropDropdown(){
   for(const [name,area] of crops){
     const o=document.createElement('option');
     o.value=name;
-    o.textContent=name+'  ·  '+area.toLocaleString()+' kha';
+    o.textContent=name;
     sel.appendChild(o);
   }
-  // restore previous crop selection if still present
-  if(selCrop){
-    const has=[...sel.options].some(o=>o.value===selCrop);
-    sel.value=has?selCrop:'';
-    if(!has)selCrop=null;
-  }
+  // (fix #1) village changes reset crop to General — do NOT restore previous crop
   updateCropSource();
 }
 
 function updateCropSource(){
+  // (fix #3) crop-source line intentionally hidden
   const el=document.getElementById('crop-src');
-  if(!el)return;
-  if(!cropAreaCtx){el.textContent='';return;}
-  const r=cropAreaCtx.rec;
-  if(cropAreaCtx.exact){
-    el.textContent='Crop areas: '+r.d+', '+r.s;
-  }else{
-    el.textContent='Crop areas: '+r.d+', '+r.s+' ('+CT('nearest')+', ~'+Math.round(cropAreaCtx.km)+' km)';
-  }
+  if(el)el.textContent='';
 }
 
 /* ── Calendar lookup for a crop (uses nearest district WITH that crop) ── */
@@ -690,6 +688,9 @@ function renderCalendar(cropName){
     return;
   }
   const MN=['','J','F','M','A','M','J','J','A','S','O','N','D'];
+  // today as a year fraction for the marker (fix #4)
+  const now=new Date();
+  const todayFrac=yearFrac(now.getMonth()+1, now.getDate());
   let html='<div class="cal-title">'+CT('calTitle')
     +' <span class="crop-badge">'+cropName+'</span></div>';
   const srcTxt = found.exact ? (found.rec.d+', '+found.rec.s)
@@ -703,14 +704,34 @@ function renderCalendar(cropName){
     html+='<div class="cal-track"><div class="cal-months">';
     for(let m=1;m<=12;m++)html+='<div class="cal-month">'+MN[m]+'</div>';
     html+='</div>';
+    html+=growBand(szn);                                   // (fix #5) pale-yellow growing band
     html+=barsFor(szn.sfm,szn.sfd,szn.stm,szn.std,'sow',CT('sowing'));
     html+=barsFor(szn.hfm,szn.hfd,szn.htm,szn.htd,'harv',CT('harvest'));
+    if(todayFrac!=null)                                    // (fix #4) today marker
+      html+='<div class="cal-today" style="left:'+(todayFrac*100).toFixed(2)+'%"></div>';
     html+='</div></div>';
   }
   html+='<div class="cal-legend">'
+    +'<div class="cal-leg"><span class="sw grow"></span>'+CT('growing')+'</div>'
     +'<div class="cal-leg"><span class="sw sow"></span>'+CT('sowing')+'</div>'
-    +'<div class="cal-leg"><span class="sw harv"></span>'+CT('harvest')+'</div></div>';
+    +'<div class="cal-leg"><span class="sw harv"></span>'+CT('harvest')+'</div>'
+    +'<div class="cal-leg"><span class="sw today"></span>'+CT('today')+'</div></div>';
   box.innerHTML=html;
+}
+
+/* (fix #5) pale band spanning sowing-start to harvest-end (handles year wrap) */
+function growBand(szn){
+  const start=yearFrac(szn.sfm,szn.sfd);
+  let end=yearFrac(szn.htm,szn.htd);
+  if(end==null)end=yearFrac(szn.hfm,szn.hfd);   // fall back to harvest-from if harvest-to missing
+  if(start==null||end==null)return '';
+  const pct=v=>(v*100).toFixed(2)+'%';
+  if(end>=start){
+    return '<div class="cal-band" style="left:'+pct(start)+';width:'+((end-start)*100).toFixed(2)+'%"></div>';
+  }
+  // growing season wraps past Dec into next year
+  return '<div class="cal-band" style="left:'+pct(start)+';width:'+((1-start)*100).toFixed(2)+'%"></div>'
+       + '<div class="cal-band" style="left:0;width:'+(end*100).toFixed(2)+'%"></div>';
 }
 
 /* fraction across the year (0..1) for a given month/day */
@@ -845,9 +866,12 @@ function applyFont(el,lg){
     const _ov=window.onVillageChange;
     window.onVillageChange=function(){
       _ov.apply(this,arguments);
+      selCrop=null;                 // (fix #1) reset to General on village change
       resolveCropContexts();
       populateCropDropdown();
-      renderCalendar(selCrop);
+      const sel=document.getElementById('cropsel');
+      if(sel)sel.value='';
+      renderCalendar(null);
     };
   }
   // refresh crop labels on language switch
